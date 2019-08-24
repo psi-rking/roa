@@ -2,13 +2,23 @@ import numpy as np
 import matplotlib.pyplot as plt
 from math import pi,sqrt,exp
 
+def find_nearest(array, value):
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    return array[idx]
+
+def find_nearest_idx(array, value):
+    array = np.asarray(array)
+    return (np.abs(array - value)).argmin()
+
 # Gaussian for adding width
 # x:     cm^-1 at which to compute
 # xzero: center of line
 # R:     strength/intensity/area of line
 # delta: half-width at 1/e * peak height
 def Gaussian(x, xzero, R, Delta):
-    y = x.copy()
+    xzero = find_nearest(x, xzero)  # make sure our finite representation captures peak
+    y = np.zeros(len(x))
     y[:] = [R / (Delta * sqrt(pi)) * exp(-((t-xzero)/Delta)**2) for t in x]
     return y
 
@@ -18,32 +28,38 @@ def Gaussian(x, xzero, R, Delta):
 # R:     strength/intensity/area of line
 # gamma: half-width at 1/2 * peak height
 def Lorentzian(x, xzero, R, Gamma):
-    y = x.copy()
+    xzero = find_nearest(x, xzero)  # make sure our finite representation captures peak
+    y = np.zeros(len(x))
     y[:] = [R / pi * Gamma / ((t-xzero)**2 + Gamma**2) for t in x]
+    return y
+
+def DeltaPeak(x, xzero, R, Delta=None):
+    y = np.zeros(len(x))
+    y[find_nearest_idx(x, xzero)] = R
     return y
 
 # peakList: tuples of (frequency, intensity)
 # delta: linewidth parameter (perhaps in cm^-1)
-# broadenList: list of booleans to indicate whether broadening is desired
-# peakType: may be Lorentzian or Gaussian
+# peakType: may be Lorentzian or Gaussian or DeltaPeak; may be list
 def plotSpectrum(peakList, labels=None, Npoints=200, Xmin=None, Xmax=None,
-plotStyleList=None, broadenList=None, title="Spectrum",
-delta=15, peakType='Lorentzian'):
+plotStyleList=None, title="Spectrum", delta=15, peakType='Lorentzian'):
+
+    if type(peakType) is list:
+        peakTypes = peakType
+    else:
+        peakTypes = [peakType for i in range(len(peakList))]
 
     if Xmin is None:
         Xmin = 1e6
         for l in peakList:
-            tmp = max(min(l)[0] - 200,0)
+            tmp = max(min(l)[0] - 100,0)
             if tmp < Xmin: Xmin = tmp
 
     if Xmax is None:
         Xmax = 0
         for l in peakList:
-            tmp = max(l)[0] + 200
+            tmp = max(l)[0] + 100
             if tmp > Xmax: Xmax = tmp
-
-    if broadenList is None:
-        broadenList = [True] * len(peakList)
 
     fig = plt.figure()
     # figure parameters:
@@ -62,18 +78,11 @@ delta=15, peakType='Lorentzian'):
     ax.set_ylabel('intensity')
 
     for i, l in enumerate(peakList):
-        if broadenList[i]:
-            y = 0
-            x = np.linspace(Xmin, Xmax, Npoints)
-            for peak in l:
-                y += eval(peakType)(x, peak[0], peak[1], delta)
-        else:
-            x = []
-            y = []
-            for peak in l:
-                if peak[0] > Xmin and peak[0] < Xmax:
-                    x.append(peak[0])
-                    y.append(peak[1])
+        x = np.linspace(Xmin, Xmax, Npoints)
+        y = np.zeros(len(x))
+        for peak in l:
+            if peak[0] > Xmin and peak[0] < Xmax:
+                y += eval(peakTypes[i])(x, peak[0], peak[1], delta)
 
         if plotStyleList is None:
             ax.plot(x, y,'+-')
@@ -82,6 +91,8 @@ delta=15, peakType='Lorentzian'):
 
     if labels is not None:
         ax.legend(labels, loc='best')
+
+    plt.xlim(Xmin,Xmax)
 
     #Location of legend, use string or code
     #Best    0 upper right 1 upper left  2 lower left  3
@@ -110,7 +121,7 @@ delta=15, peakType='Lorentzian'):
 
 
 def plotROAspectrum(peaksRaman, labelRaman, peakList, labels=None, Npoints=200, Xmin=None, Xmax=None,
-    title='', delta=15, peakType='Lorentzian'):
+    title='', delta=15, peakType='Lorentzian', plotStyleList=None):
 
     if Xmin is None:
         Xmin = 1e6
@@ -126,31 +137,44 @@ def plotROAspectrum(peaksRaman, labelRaman, peakList, labels=None, Npoints=200, 
 
     fig = plt.figure()
 
-    ax=fig.add_axes([0.10,0.50,0.80,0.40])
+    ax=fig.add_axes([0.10,0.70,0.80,0.20])
     ax.set_title('Raman (top) and ROA (bottom) ' + title)
     ax.set_ylabel('Intensity')
 
     x = np.linspace(Xmin, Xmax, Npoints)
-    y = 0
+    y = np.zeros(len(x))
     for p in peaksRaman:
-        y += eval(peakType)(x, p[0], p[1], delta)
-    ax.plot(x, y,'.-')
-    plt.xlim(Xmin,Xmax)
-    #ax.legend(labelRaman, loc='top left')
+        if p[0] > Xmin and p[0] < Xmax:
+            y += eval(peakType)(x, p[0], p[1], delta)
 
-    ax2=fig.add_axes([0.10,0.10,0.80,0.40])
+    if plotStyleList is None:
+        ax.plot(x, y,'b.-')
+    else:
+        ax.plot(x, y, plotStyleList[0])
+
+    plt.xlim(Xmin,Xmax)
+    #ax.legend(labelRaman, loc='lower left')
+
+    ax2=fig.add_axes([0.10,0.10,0.80,0.55])
     ax2.set_xlabel('Wavenumber')
     ax2.set_ylabel('Intensity')
 
-    for l in peakList:
-        y = 0
+    for i,l in enumerate(peakList):
+        y = np.zeros(len(x))
         for p in l:
-            y += eval(peakType)(x, p[0], p[1], delta)
-        ax2.plot(x, y,'.-')
+            if p[0] > Xmin and p[0] < Xmax:
+                y += eval(peakType)(x, p[0], p[1], delta)
+
+        if plotStyleList is None:
+            ax2.plot(x, y,'.-')
+        else:
+            ax2.plot(x, y, plotStyleList[i+1])
+
         plt.xlim(Xmin,Xmax)
 
     if labels is not None:
-        ax2.legend(labels, loc='upper left')
+        ax2.legend(labels, loc='best')
+    #    ax2.legend(labels, loc='upper left')
 
     plt.show()
     plt.clf()

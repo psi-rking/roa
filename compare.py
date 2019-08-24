@@ -53,12 +53,12 @@ def compareFiles(refFile, testFiles, propKeys=None, alignModes=False, okThreshol
         RMSDev[i,:] = sp.compareToWithRMSDev(ref,propKeys)
         aveRelAbsDev[i,:] = sp.compareToWithAveRelAbsDev(ref,propKeys)
         lblDev.append(sp.filename[:-4] )
-        nbfDev.append(sp.data['NBF'])
+        nbfDev.append(sp.data['Number of basis functions'])
 
     # Print deviations
-    s = "%20s%4s" % ('','NBF')
+    s = "%24s" % ('NBF')
     for k in propKeys:
-        s += '%12s' % k
+        s += '%12s' % k[-10:]
     print(s)
 
     print("** Average Deviation from %s" % refFile)
@@ -99,7 +99,7 @@ def compareFiles(refFile, testFiles, propKeys=None, alignModes=False, okThreshol
     fieldwidth = 25
     
     print("_" * fieldwidth * len(propKeys[0:4]))
-    print("Ranked by RMS deviation from %s" % refFile)
+    print("Ranked by RMS deviation from %s (%d) " % (refFile, ref.data['Number of basis functions']))
     print("Shown if average relative absolute deviation is < %4.2f." % okThreshold)
     s = ''
     for k in propKeys[0:4]:
@@ -126,11 +126,16 @@ def compareFiles(refFile, testFiles, propKeys=None, alignModes=False, okThreshol
     print(s)
     print( "_" * fieldwidth * len(propKeys[4:]))
 
+    # if you don't want part of file name in output
+    #import re
+    #rmstr = '-ccsd'
+
     for place in range(len(testFiles)):
         s = ""
         for i, b in enumerate(best[4:]):
            if aveRelAbsDev[b[place], 4+i] < okThreshold:
-                s += "{0:>{1}}".format(lblDev[ b[place] ] + '(' + str(nbfDev[ b[place] ]) +')', fieldwidth)
+               #s += "{0:>{1}}".format(re.sub(rmstr,'',lblDev[ b[place]])+ '(' + str(nbfDev[ b[place] ]) +')', fieldwidth)
+               s += "{0:>{1}}".format(lblDev[ b[place]]+ '(' + str(nbfDev[ b[place] ]) +')', fieldwidth)
            else:
                s += fieldwidth * " "
         print(s)

@@ -3,6 +3,11 @@ from numpy import array
 
 defaultKeys = [ 'Frequency', 'ROA alpha*G', 'ROA Beta(G)^2', 'ROA Beta(A)^2',
 'ROA R-L Delta(90)_z', 'ROA R-L Delta(90)_x', 'ROA R-L Delta(0)', 'ROA R-L Delta(180)' ]
+#['Raman Intensity (linear)'] 
+#['Raman Intensity (circular)'
+#['ROA alpha*G']                = alpha[0:last] * G[0:last]
+#['ROA Beta(G)^2']              = beta_G2[0:last]
+#['ROA Beta(A)^2']              = betaA2[0:last]
 
 class SPECTRUM(object):
 
@@ -14,7 +19,7 @@ class SPECTRUM(object):
 
     def __str__(self):
         s  = '   ROA Diff. Parameter R-L (Ang^4/amu * 1000)       '
-        s += '  Filename: %20s  # of b.f.: %3d \n' % (self.filename,self.data['NBF'])
+        s += '  Filename: %20s  # of b.f.: %3d \n' % (self.filename,self.data['Number of basis functions'])
         s += '----------------------------------------------------- '
         s += '----------------------------------------------------\n'
         s += '    '
@@ -53,25 +58,47 @@ class SPECTRUM(object):
         delta_x_90 = []
         delta_0  = []
         delta_180  = []
+        RamanLinear  = []
+        RamanCircular  = []
 
         with open(filename,'r') as f:
             startInvariants = 0
+            startDifference = 0
+            startParameters = 0
             toInvariantsLine = 0
             toDifferenceLine = 0
-            startDifference = 0
+            toParametersLine = 0
         
             for line in f:
                 words = line.split()
                 cnt = 0
 
                 if len(words) > 4:
-                    if words[0] == 'Number' and words[2] == 'basis':
-                        self.data['NBF'] = int(words[4])
+                    if words[0] == 'Number' and words[1] == 'of' and words[2] == 'basis':
+                        self.data['Number of basis functions'] = int(words[4])
         
                 if startInvariants:
                    toInvariantsLine += 1
                 if startDifference:
                    toDifferenceLine += 1
+                if startParameters:
+                   toParametersLine += 1
+
+                if startParameters == False:
+                    if len(words) > 2:
+                        if words[0] == 'Raman' and words[1] == 'Scattering' and words[2] == 'Parameters':
+                            startParameters = True
+
+                if startParameters and toParametersLine > 4:
+                    if len(words) < 2: # all done
+                        startParameters = False
+                    elif words[1][-1] == 'i': # hit an imaginary frequency
+                        startParameters = False
+                    elif float(words[1]) < 8.0: # hit a rotation
+                        startParameters = False
+                    else:
+                       RamanLinear.append(float(words[4]))
+                       RamanCircular.append(float(words[6]))
         
                 if startInvariants == False:
                     if len(words) > 2:
@@ -79,7 +106,9 @@ class SPECTRUM(object):
                             startInvariants = True
         
                 if startInvariants and toInvariantsLine > 4:
-                    if words[1][-1] == 'i': # hit an imaginary frequency
+                    if len(words) < 2: # all done
+                        startInvariants = False
+                    elif words[1][-1] == 'i': # hit an imaginary frequency
                         startInvariants = False
                     elif float(words[1]) < 8.0: # hit a rotation
                         startInvariants = False
@@ -95,7 +124,9 @@ class SPECTRUM(object):
                             startDifference = True
         
                 if startDifference and toDifferenceLine > 4:
-                    if words[1][-1] == 'i': # hit an imaginary frequency
+                    if len(words) < 2: # all done
+                        startDifference = False
+                    elif words[1][-1] == 'i': # hit an imaginary frequency
                         startDifference = False
                     elif float(words[1]) < 8.0:
                         startDifference = False
@@ -113,10 +144,13 @@ class SPECTRUM(object):
             self.data['ROA R-L Delta(90)_x']= np.array( delta_x_90 )
             self.data['ROA R-L Delta(0)']   = np.array( delta_0 )
             self.data['ROA R-L Delta(180)'] = np.array( delta_180 )
+            #['IR Intensity']              TODO
+            self.data['Raman Intensity (linear)']  = np.array( RamanLinear )
+            self.data['Raman Intensity (circular)'] = np.array( RamanCircular )
 
     def compareToWithAveDev(s, o, keys=None):  #self,other
         if len(s.data['Frequency']) != len(o.data['Frequency']):
-            raise('spectra cannot be compared')
+            raise Exception('Spectra cannot be compared')
 
         if keys == None:
             keys = defaultKeys
