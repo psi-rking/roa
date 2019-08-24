@@ -69,6 +69,7 @@ def scatter(
         ROAdictName='spectra.dat', # name of dictionary output file
         calc_type='Calc Type',  # for output, if desired
         nbf=None, #for output, if desired
+        mode2decompose=1
         pr=print
       ):
 
@@ -463,7 +464,7 @@ def scatter(
     with open(ROAdictName, "w") as f:
         f.write(str(Dout))
 
-    mode = 0  # for decomposition
+    mode = mode2decompose -1 # for decomposition
     local_pairs(A_der, G_der, Q_der, Lx, omega, roa_conv, mode, Fevals[mode], pr)
 
     return
