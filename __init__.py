@@ -9,9 +9,11 @@ from .scatter import omega_in_au
 from .spectrum import SPECTRUM
 from .compare import compareOutputFiles, compareSpectraFiles, reorder
 from .mode_scatter import modeVectors, modeScatter
+from sys import platform
 try:
   import matplotlib
-  matplotlib.use('TkAgg')
+  if platform != 'darwin':
+    matplotlib.use('TkAgg')
   from .plot import plotSpectrum, plotROAspectrum, discretizedSpectrum
 except ImportError:
   pass
