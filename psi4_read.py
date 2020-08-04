@@ -170,3 +170,15 @@ def psi4_read_dipole_quadrupole_polarizability(Natom, omega):
     os.chdir(root_dir)
     return fd_quad
 
+# This is weird, but often times I am writing a ZMAT to include a geometry
+# from psi4, so this is a hack to get the canonical psi4 geom.
+def psi4_read_ZMAT(Natom):
+    geom = np.zeros( (Natom,3) )
+    with open("ZMAT", "r") as fZMAT:
+        fZMAT.readline()
+        for i in range(Natom):
+            s = fZMAT.readline().split()
+            for xyz in range(3):
+                geom[i][xyz] = float(s[1+xyz])
+    return geom
+

@@ -1,6 +1,11 @@
 import numpy as np
 from numpy import array
 
+def batch(iterable, n=1):
+    l = len(iterable)
+    for ndx in range(0, l, n):
+        yield iterable[ndx:min(ndx + n, l)]
+
 defaultKeys = [ 'Frequency', 'ROA alpha*G', 'ROA Beta(G)^2', 'ROA Beta(A)^2',
 'ROA R-L Delta(90)_z', 'ROA R-L Delta(90)_x', 'ROA R-L Delta(0)', 'ROA R-L Delta(180)' ]
 #['Raman Intensity (linear)'] 
@@ -11,45 +16,75 @@ defaultKeys = [ 'Frequency', 'ROA alpha*G', 'ROA Beta(G)^2', 'ROA Beta(A)^2',
 
 class SPECTRUM(object):
 
-    def __init__(self):
-        self.filename = None
+    def __init__(self, fileName=None):
+        self.filename = fileName
         self.data = {}
-        #if filename is not None:
-        #    self.readOutput()
 
     def __str__(self):
-        s  = '   ROA Diff. Parameter R-L (Ang^4/amu * 1000)       '
-        s += '  Filename: %20s  # of b.f.: %3d \n' % (self.filename,self.data['Number of basis functions'])
-        s += '----------------------------------------------------- '
-        s += '----------------------------------------------------\n'
+        s  = '\n ROA Diff. Parameter R-L (Ang^4/amu * 1000)'
+        s += ' Filename: %15s,  # of b.f.: %3d \n' % (self.filename,self.data['Number of basis functions'])
+        s += 132*'-' + '\n'
         s += '    '
         for key in defaultKeys:
-            s += '%12s' % key
+            if key[:4] == 'ROA ':
+                s += '%16s' % key[4:] # truncate off 'ROA '
+            else:
+                s += '%16s' % key
         s += '\n'
-        #s += '     Harmonic Freq.  AlphaG   Beta(G)^2    Beta(A)^2   '
-        #s += 'Delta_z(90)  Delta_x(90)   Delta(0)   Delta(180)   \n'
 
-        s += '----------------------------------------------------- '
-        s += '----------------------------------------------------\n'
-
+        s += 132*'-' + '\n'
         for i in range(len(self.data['Frequency'])):
             s += '%4d'    % (i+1)
             for key in defaultKeys:
-                s += '%12.4f' % self.data[key][i]
+                s += '%16.4f' % self.data[key][i]
             s += '\n'
         return s
+
+    def print_all(self):
+        # assume everything is either scalar or is an array of dimension 1 by # of frequencies
+        keys = list(self.data.keys())
+        fieldwidth = 25
+
+        s = '** Scalar Quantities:\n'
+        # Print scalars first
+        for k in list(keys):
+           if (not hasattr(self.data[k],'__len__')) or isinstance(self.data[k],str):
+               s += '{:30}{:^30}\n'.format(k,self.data[k])
+               keys.remove(k)
+
+        s += '** Vector Quantities:\n'
+        for keyRow in batch(keys,4):
+            s += 103*'-' + '\n' + '   '
+            for k in keyRow:
+                s += '{:>{fw}s}'.format(k,fw=fieldwidth)
+            s += '\n'
+            s += 103*'-' + '\n'
+
+            for i in range(len(self.data['Frequency'])):
+                s += '{:3d}'.format(i+1)
+                for k in keyRow:
+                    s += '{:{fw}.4f}'.format(self.data[k][i],fw=fieldwidth)
+                s += '\n'
+
+        s += 103*'-' + '\n'
+        print(s)
+        return
+
 
     def readDictionaryOutputFile(self,filename):
         self.filename = filename
         with open(filename,'r') as f:
             self.data = eval( f.read() )
+        if filename[-4:] == '.dat':
+            filename = filename[:-4]
+        filename = filename.replace("spectra","sp")
+        self.filename = filename
 
     def writeDictionaryOutputFile(self, outfile):
         with open(outfile,'w') as f:
             f.write(str(self.data))
 
     def readPsi4OutputFile(self,filename):
-        self.filename = filename
         freq = []
         alphaG = []
         betaG2 = []
@@ -58,6 +93,7 @@ class SPECTRUM(object):
         delta_x_90 = []
         delta_0  = []
         delta_180  = []
+        IRIntensity = []
         RamanLinear  = []
         RamanCircular  = []
 
@@ -65,13 +101,21 @@ class SPECTRUM(object):
             startInvariants = 0
             startDifference = 0
             startParameters = 0
+            startOldFrequencies = 0
+            oldStyle = False
             toInvariantsLine = 0
             toDifferenceLine = 0
             toParametersLine = 0
+            toStartOldFrequenciesLine = 0
         
             for line in f:
                 words = line.split()
                 cnt = 0
+                if len(words) == 3:
+                    if words[0] == 'Wavefunction' and words[1] == '=':
+                        wfn = words[2]
+                    elif words[0] == 'Basis' and words[1] == 'Set:':
+                        basis = words[2]
 
                 if len(words) > 4:
                     if words[0] == 'Number' and words[1] == 'of' and words[2] == 'basis':
@@ -83,13 +127,32 @@ class SPECTRUM(object):
                    toDifferenceLine += 1
                 if startParameters:
                    toParametersLine += 1
+                if startOldFrequencies:
+                   toStartOldFrequenciesLine += 1
 
                 if startParameters == False:
                     if len(words) > 2:
-                        if words[0] == 'Raman' and words[1] == 'Scattering' and words[2] == 'Parameters':
+                        # OLD style output from 2019
+                        if words[0] == "Harmonic" and words[1] == "Freq." and words[2] == "IR":
+                            print("Reading old 2019 style output")
+                            startOldFrequencies = True
+                            oldStyle = True
+                        elif words[0] == 'Raman' and words[1] == 'Scattering' and words[2] == 'Parameters':
                             startParameters = True
 
-                if startParameters and toParametersLine > 4:
+                if startOldFrequencies and toStartOldFrequenciesLine > 2:
+                    if len(words) < 2: # all done
+                        startOldFrequencies = False
+                    elif words[1][-1] == 'i': # hit an imaginary frequency
+                        startOldFrequencies = False
+                    elif float(words[1]) < 8.0: # hit a rotation
+                        startOldFrequencies = False
+                    else:
+                       #freq.append(float(words[1]))
+                       IRIntensity.append(float(words[2]))
+
+                lineOffset = (4 if oldStyle else 5)
+                if startParameters and toParametersLine > lineOffset:
                     if len(words) < 2: # all done
                         startParameters = False
                     elif words[1][-1] == 'i': # hit an imaginary frequency
@@ -97,15 +160,21 @@ class SPECTRUM(object):
                     elif float(words[1]) < 8.0: # hit a rotation
                         startParameters = False
                     else:
-                       RamanLinear.append(float(words[4]))
-                       RamanCircular.append(float(words[6]))
+                       if not oldStyle:
+                           IRIntensity.append(float(words[2]))
+                           RamanLinear.append(float(words[6]))
+                           RamanCircular.append(float(words[8]))
+                       else:
+                           RamanLinear.append(float(words[4]))
+                           RamanCircular.append(float(words[6]))
         
                 if startInvariants == False:
                     if len(words) > 2:
                         if words[0] == 'ROA' and words[1] == 'Scattering' and words[2] == 'Invariants':
                             startInvariants = True
-        
-                if startInvariants and toInvariantsLine > 4:
+
+                lineOffset = (4 if oldStyle else 3)
+                if startInvariants and toInvariantsLine > lineOffset:
                     if len(words) < 2: # all done
                         startInvariants = False
                     elif words[1][-1] == 'i': # hit an imaginary frequency
@@ -144,9 +213,14 @@ class SPECTRUM(object):
             self.data['ROA R-L Delta(90)_x']= np.array( delta_x_90 )
             self.data['ROA R-L Delta(0)']   = np.array( delta_0 )
             self.data['ROA R-L Delta(180)'] = np.array( delta_180 )
-            #['IR Intensity']              TODO
+            self.data['IR Intensity']       = np.array( IRIntensity )
             self.data['Raman Intensity (linear)']  = np.array( RamanLinear )
             self.data['Raman Intensity (circular)'] = np.array( RamanCircular )
+            self.data['Calculation Type']   = wfn + '/' + basis
+        if filename[-4:] == '.out':
+            self.filename = filename[:-4]
+        else:
+            self.filename = filename
 
     def compareToWithAveDev(s, o, keys=None):  #self,other
         if len(s.data['Frequency']) != len(o.data['Frequency']):
@@ -208,7 +282,7 @@ def aveRelDev(Values, refValues, omitBelow):
         if abs(refValues[i]) > maxValCounted:
             num += 1
             rval += (Values[i] - refValues[i]) / refValues[i]
-        else: print('ignoring mode %d' % i)
+        else: print('aveRelDev: ignoring mode %d' % i)
 
     rval /= num
     return rval
@@ -217,13 +291,16 @@ def aveRelAbsDev(Values, refValues, omitBelow):
     maxValCounted = omitBelow*max(refValues)
     num = 0
     rval = 0.0
+    ignore_mode = []
     for i in range(len(Values)):
         if abs(refValues[i]) > maxValCounted:
             num += 1
             rval += abs( (Values[i] - refValues[i]) / refValues[i])
         else:
-            print('ignore in aveRelAbsDev mode %d, value %10.5f, maxvalue %10.5f' % (i, refValues[i], max(refValues)))
+            ignore_mode.append(i)
 
+    if len(ignore_mode) != 0:
+        print('In aveRelAbsDev, ignoring modes with small ref. values:', [m+1 for m in ignore_mode])
     rval /= num
     return rval
 

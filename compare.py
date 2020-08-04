@@ -1,9 +1,7 @@
 import numpy as np
 from . import spectrum
 
-#defaultKeys = [ 'Frequency', 'ROA alpha*G', 'ROA Beta(G)^2', 'ROA Beta(A)^2',
-#'ROA R-L Delta(90)_z', 'ROA R-L Delta(90)_x', 'ROA R-L Delta(0)', 'ROA R-L Delta(180)' ]
-
+# This needs fixed up later
 def reorder(refSp, testSp ):
     # frequency 1 and 2 are within 1 percent
     if abs((refSp.data['Frequency'][0] - refSp.data['Frequency'][1])/refSp.data['Frequency'][0]) < 0.01:
@@ -23,72 +21,105 @@ def reorder(refSp, testSp ):
                     testSp.data[k][1] = tval
     return
 
-def compareFiles(refFile, testFiles, propKeys=None, alignModes=False, okThreshold=0.20): 
-
-    ref = spectrum.SPECTRUM()
-    ref.readPsi4OutputFile(refFile)
-    print(ref)
+def compareOutputFiles(refFile, testFiles, propKeys=None, alignModes=False, okThreshold=0.50): 
+    print("Reading files:")
+    refSpectrum = spectrum.SPECTRUM()
+    refSpectrum.readPsi4OutputFile(refFile)
+    print(refSpectrum)
 
     if propKeys is None:
         propKeys = spectrum.defaultKeys
 
     testSpectra = []
-    for name in testFiles:
+    for tF in testFiles:
         sp = spectrum.SPECTRUM()
-        sp.readPsi4OutputFile(name)
+        sp.readPsi4OutputFile(tF)
+        print(sp)
         testSpectra.append(sp)
 
+    print("Comparing data:")
+    compareSpectra(refSpectrum, testSpectra, propKeys, alignModes, okThreshold)
+    return
+
+def compareSpectraFiles(refFile, testFiles, propKeys=None, alignModes=False, okThreshold=0.50): 
+    print("Reading files:")
+    refSpectrum = spectrum.SPECTRUM()
+    refSpectrum.readDictionaryOutputFile(refFile)
+    print(refSpectrum)
+
+    if propKeys is None:
+        propKeys = spectrum.defaultKeys
+
+    testSpectra = []
+    for tF in testFiles:
+        sp = spectrum.SPECTRUM()
+        sp.readDictionaryOutputFile(tF)
+        print(sp)
+        testSpectra.append(sp)
+
+    print("Comparing data:")
+    compareSpectra(refSpectrum, testSpectra, propKeys, alignModes, okThreshold)
+    return
+
+# Sref  = reference spectrum
+# Stest = test spectra
+def compareSpectra(Sref, Stest, propKeys, alignModes, okThreshold):
     # Do a test sort of the first couple of modes to try to line them up
     if alignModes:
-        for sp in testSpectra:
-            reorder(ref, sp)
+        for spec in Stest:
+            reorder(Sref, spec)
 
-    aveDev = np.zeros( (len(testSpectra),len(propKeys)) )
-    RMSDev = np.zeros( (len(testSpectra),len(propKeys)) )
-    aveRelAbsDev = np.zeros( (len(testSpectra),len(propKeys)) )
+    aveDev = np.zeros( (len(Stest),len(propKeys)) )
+    RMSDev = np.zeros( (len(Stest),len(propKeys)) )
+    aveRelAbsDev = np.zeros( (len(Stest),len(propKeys)) )
     lblDev = []
     nbfDev = []
-    for i, sp in enumerate(testSpectra):
-        aveDev[i,:] = sp.compareToWithAveDev(ref,propKeys)
-        RMSDev[i,:] = sp.compareToWithRMSDev(ref,propKeys)
-        aveRelAbsDev[i,:] = sp.compareToWithAveRelAbsDev(ref,propKeys)
-        lblDev.append(sp.filename[:-4] )
-        nbfDev.append(sp.data['Number of basis functions'])
+    for i, spec in enumerate(Stest):
+        aveDev[i,:] = spec.compareToWithAveDev(Sref,propKeys)
+        RMSDev[i,:] = spec.compareToWithRMSDev(Sref,propKeys)
+        aveRelAbsDev[i,:] = spec.compareToWithAveRelAbsDev(Sref,propKeys)
+        lblDev.append(spec.filename )
+        nbfDev.append(spec.data['Number of basis functions'])
 
     # Print deviations
-    s = "%24s" % ('NBF')
+    print('\n'+148*'-')
+    s = "%20s" % ('NBF')
     for k in propKeys:
-        s += '%12s' % k[-10:]
+        if k[:4] == 'ROA ':
+            s += '%16s' % k[4:]
+        else:
+            s += '%16s' % k
     print(s)
+    print(148*'-')
 
-    print("** Average Deviation from %s" % refFile)
+    print("** Average Deviation from %s" % Sref.filename)
     s = ''
     for i in range(len(lblDev)):
-        s += "%-20s%4d" % (lblDev[i], nbfDev[i]) # filename
+        s += "%-16s%4d" % (lblDev[i], nbfDev[i]) # filename
         for p in range(len(propKeys)):
-            s += "%12f" % aveDev[i,p]
+            s += "%16.4f" % aveDev[i,p]
         s += '\n'
     print(s)
     
-    print("** RMS Deviation from %s" % refFile)
+    print("** RMS Deviation from %s" % Sref.filename)
     s = ''
     for i in range(len(lblDev)):
-        s += "%-20s%4d" % (lblDev[i], nbfDev[i]) # filename
+        s += "%-16s%4d" % (lblDev[i], nbfDev[i]) # filename
         for p in range(len(propKeys)):
-            s += "%12f" % RMSDev[i,p]
+            s += "%16.4f" % RMSDev[i,p]
         s += '\n'
     print(s)
     
-    print("** Average Relative Absolute Deviation from %s" % refFile)
+    print("** Average Relative Absolute Deviation from %s" % Sref.filename)
     s = ''
     for i in range(len(lblDev)):
-        s += "%-20s%4d" % (lblDev[i], nbfDev[i]) # filename
+        s += "%-16s%4d" % (lblDev[i], nbfDev[i]) # filename
         for p in range(len(propKeys)):
-            s += "%12f" % aveRelAbsDev[i,p]
+            s += "%16.4f" % aveRelAbsDev[i,p]
         s += '\n'
     print(s)
     
-    print("Number of modes compared: %d\n" % len(ref.data['Frequency']))
+    print("Number of modes compared: %d\n" % len(Sref.data['Frequency']))
     
     best = []
     for i in range(len(propKeys)):
@@ -96,18 +127,19 @@ def compareFiles(refFile, testFiles, propKeys=None, alignModes=False, okThreshol
         v = [o[j] for j in range(len(lblDev))]
         best.append(v)
 
-    fieldwidth = 25
+    fieldwidth = 22
     
-    print("_" * fieldwidth * len(propKeys[0:4]))
-    print("Ranked by RMS deviation from %s (%d) " % (refFile, ref.data['Number of basis functions']))
+    print("-" * fieldwidth * len(propKeys[0:4]))
+    print("Ranked by RMS deviation from %s (%d). Best on top." %
+        (Sref.filename, Sref.data['Number of basis functions']))
     print("Shown if average relative absolute deviation is < %4.2f." % okThreshold)
     s = ''
     for k in propKeys[0:4]:
-        s += "{0:^{1}}".format(k,fieldwidth)
+        s += "{0:>{1}}".format(k,fieldwidth)
     print(s)
-    print("_" * fieldwidth * len(propKeys[0:4]))
+    print("-" * fieldwidth * len(propKeys[0:4]))
     
-    for place in range(len(testFiles)):
+    for place in range(len(Stest)):
         s = ""
         for i, b in enumerate(best[0:4]):
            if aveRelAbsDev[b[place], i] < okThreshold:
@@ -115,30 +147,29 @@ def compareFiles(refFile, testFiles, propKeys=None, alignModes=False, okThreshol
            else:
                s += fieldwidth * " "
         print(s)
-    print( "_" * fieldwidth * len(propKeys[0:4]))
+    print( "-" * fieldwidth * len(propKeys[0:4]))
 
-    print("Ranked by RMS deviation from %s" % refFile)
-    print("Shown if average relative absolute deviation is < %4.2f." % okThreshold)
+    #print("Ranked by RMS deviation from %s" % refFile)
+    #print("Shown if average relative absolute deviation is < %4.2f." % okThreshold)
 
     s = ''
     for k in propKeys[4:]:
-        s += "{0:^{1}}".format(k,fieldwidth)
+        s += "{0:>{1}}".format(k,fieldwidth)
     print(s)
-    print( "_" * fieldwidth * len(propKeys[4:]))
+    print( "-" * fieldwidth * len(propKeys[4:]))
 
     # if you don't want part of file name in output
     #import re
     #rmstr = '-ccsd'
 
-    for place in range(len(testFiles)):
+    for place in range(len(Stest)):
         s = ""
         for i, b in enumerate(best[4:]):
            if aveRelAbsDev[b[place], 4+i] < okThreshold:
-               #s += "{0:>{1}}".format(re.sub(rmstr,'',lblDev[ b[place]])+ '(' + str(nbfDev[ b[place] ]) +')', fieldwidth)
                s += "{0:>{1}}".format(lblDev[ b[place]]+ '(' + str(nbfDev[ b[place] ]) +')', fieldwidth)
            else:
                s += fieldwidth * " "
         print(s)
-    print( "_" * fieldwidth * len(propKeys[4:]))
+    print( "-" * fieldwidth * len(propKeys[4:]))
 
     return

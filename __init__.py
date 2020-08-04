@@ -3,14 +3,16 @@ from .psi4_read import psi4_read_dipole_derivatives
 from .psi4_read import psi4_read_polarizabilities
 from .psi4_read import psi4_read_optical_rotation_tensor
 from .psi4_read import psi4_read_dipole_quadrupole_polarizability
+from .psi4_read import psi4_read_ZMAT
 from .scatter import scatter
 from .scatter import omega_in_au
 from .spectrum import SPECTRUM
-from .compare import compareFiles, reorder
+from .compare import compareOutputFiles, compareSpectraFiles, reorder
 from .mode_scatter import modeVectors, modeScatter
 try:
   import matplotlib
-  from .plot import plotSpectrum, plotROAspectrum
+  matplotlib.use('TkAgg')
+  from .plot import plotSpectrum, plotROAspectrum, discretizedSpectrum
 except ImportError:
   pass
 

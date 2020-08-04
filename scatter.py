@@ -69,7 +69,7 @@ def scatter(
         ROAdictName='spectra.dat', # name of dictionary output file
         calc_type='Calc Type',  # for output, if desired
         nbf=None, #for output, if desired
-        mode2decompose=1
+        mode2decompose=1,
         pr=print
       ):
 

@@ -38,6 +38,16 @@ def DeltaPeak(x, xzero, R, Delta=None):
     y[find_nearest_idx(x, xzero)] = R
     return y
 
+# x = pts at which evaluation should be done
+def discretizedSpectrum(x, peaks, delta=15, peakType='Lorentzian'):
+    Xmin = min(x)
+    Xmax = max(x)
+    y = np.zeros(len(x))
+    for p in peaks:
+        if p[0] > Xmin and p[0] < Xmax:
+            y += eval(peakType)(x, p[0], p[1], delta)
+    return y
+
 # peakList: tuples of (frequency, intensity)
 # delta: linewidth parameter (perhaps in cm^-1)
 # peakType: may be Lorentzian or Gaussian or DeltaPeak; may be list
@@ -62,6 +72,8 @@ plotStyleList=None, title="Spectrum", delta=15, peakType='Lorentzian'):
             if tmp > Xmax: Xmax = tmp
 
     fig = plt.figure()
+    # example of saving to pdf file : plt.savefig('foo.pdf')
+
     # figure parameters:
     # Figsize (width,height) tuple in inches
     # Dpi         Dots per inches
@@ -118,6 +130,7 @@ plotStyleList=None, title="Spectrum", delta=15, peakType='Lorentzian'):
     # ‘-‘ Solid line   ‘—‘ Dashed line ‘-.’    Dash-dot line
     # ‘:’ Dotted line  ‘H’ Hexagon marker
     plt.show()
+    return
 
 
 def plotROAspectrum(peaksRaman, labelRaman, peakList, labels=None, Npoints=200, Xmin=None, Xmax=None,
