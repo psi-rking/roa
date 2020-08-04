@@ -10,11 +10,12 @@ from .spectrum import SPECTRUM
 from .compare import compareOutputFiles, compareSpectraFiles, reorder
 from .mode_scatter import modeVectors, modeScatter
 from sys import platform
+from .plot import discretizedSpectrum
 try:
   import matplotlib
   if platform != 'darwin':
     matplotlib.use('TkAgg')
-  from .plot import plotSpectrum, plotROAspectrum, discretizedSpectrum
+  from .plot import plotSpectrum, plotROAspectrum
 except ImportError:
   pass
 
