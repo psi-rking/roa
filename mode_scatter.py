@@ -37,11 +37,12 @@ pc_h               = constants.h
 pc_hartree2ev      = constants.hartree2ev
 km_convert         = pc_hartree2J / (pc_bohr2m * pc_bohr2m * pc_amu2kg * pc_au2amu)
 cm_convert         = 1.0 / (2.0 * pi * pc_c * 100.0)
+from psi4.core import print_out
 
 
 # Return the vectors along which to displace for finite differences
 # and ROA analysis.
-def modeVectors(geom, masses, hessian, modesToReturn=None, print_lvl=1, pr=print):
+def modeVectors(geom, masses, hessian, modesToReturn=None, print_lvl=1, pr=print_out):
         # geom,      # (Natom,3) Cartesian coordinates of nuclei
         # masses,    # atomic masses
         # hessian    # (3*Natom,3*Natom) Cartesian 2nd derivative
@@ -140,18 +141,21 @@ def modeVectors(geom, masses, hessian, modesToReturn=None, print_lvl=1, pr=print
         else:
             pr("\t  %3d   %10.2f \n" % (i, freqs[i]))
 
-    selected_modes = np.zeros( (3*Natom, len(modesToReturn)) )
+    # Change!  Modes will be returned as rows
+    selected_modes = np.zeros( (len(modesToReturn,3*Natom)) )
+    #selected_modes = np.zeros( (3*Natom, len(modesToReturn)) )
     selected_freqs = np.zeros( len(modesToReturn) )
 
     for i, mode in enumerate(modesToReturn):
-        selected_modes[:,i] = Lx[:,mode]
+    #    selected_modes[:,i] = Lx[:,mode]
+        selected_modes[i,:] = Lx[:,mode]
         selected_freqs[i] = freqs[mode]
 
     pr("Frequencies (with modes) returned from modeVectors.\n")
     pr(str(selected_freqs)+'\n')
 
     if print_lvl > 1:
-        pr("Vectors returned from modeVectors are columns.\n")
+        pr("Vectors returned from modeVectors are rows.\n")
         pr(str(selected_modes)+'\n')
 
     return (selected_modes, selected_freqs)
@@ -292,7 +296,7 @@ def modeScatter(
         G_der_q_tmp[i,:] = G_grad[i].reshape(1,9)
         Q_der_q_tmp[i,:] = Q_grad[i].reshape(1,27)
 
-    Lx = mode_vectors # columns are vectors along with displacement was made
+    Lx = mode_vectors.T # after transpose, columns are displacement vectors
 
     redmass = np.zeros( Nmodes )
     for i in range(Nmodes):

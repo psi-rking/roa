@@ -11,6 +11,7 @@ from .compare import compareOutputFiles, compareSpectraFiles, reorder
 from .mode_scatter import modeVectors, modeScatter
 from sys import platform
 from .plot import discretizedSpectrum
+from . import Psi4ROA
 try:
   import matplotlib
   if platform != 'darwin':

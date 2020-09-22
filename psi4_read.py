@@ -41,17 +41,14 @@ def psi4_read_dipole_derivatives(Natom):
 
 # Read in fd_pol, the displaced (1) electric-dipole/electric-dipole
 # polarizability from subdirectories.
-def psi4_read_polarizabilities(Natom, omega):
+def psi4_read_polarizabilities(dirNames, omega):
     root_dir = os.getcwd()
     line_cnt = 0
     reading = False
     found = False
     fd_pol = []
-    for i in range(1,Natom+1):
-        for xyz in ['x','y','z']:
-            for direction in ['m','p']:
-                s = str(i)+'_'+xyz+'_'+direction
-                os.chdir(root_dir + '/' + s)
+    for d in dirNames:
+                os.chdir(root_dir + '/' + d)
                 one_pol = np.zeros( (3,3) )
                 with open('output.dat', "r") as fpol:
                     for line in fpol:
@@ -82,17 +79,14 @@ def psi4_read_polarizabilities(Natom, omega):
 
 # Read in fd_rot, the displaced (2) electric-dipole/magnetic-dipole
 # polarizability from subdirectories.
-def psi4_read_optical_rotation_tensor(Natom, omega, gauge='Modified Velocity'):
+def psi4_read_optical_rotation_tensor(dirNames, omega, gauge='Modified Velocity'):
     root_dir = os.getcwd()
     reading = False
     found = False
     line_cnt = 0
     fd_rot = []
-    for i in range(1,Natom+1):
-        for xyz in ['x','y','z']:
-            for direction in ['m','p']:
-                s = str(i)+'_'+xyz+'_'+direction
-                os.chdir(root_dir + '/' + s)
+    for d in dirNames:
+                os.chdir(root_dir + '/' + d)
                 one_rot = np.zeros( (3,3) )
                 with open('output.dat', "r") as frot:
                     for line in frot:
@@ -127,17 +121,14 @@ def psi4_read_optical_rotation_tensor(Natom, omega, gauge='Modified Velocity'):
 
 # Read in fd_quad, the displaced (3) electric-dipole/electric-quadrupole
 # polarizability from subdirectories.
-def psi4_read_dipole_quadrupole_polarizability(Natom, omega):
+def psi4_read_dipole_quadrupole_polarizability(dirNames, omega):
     root_dir = os.getcwd()
     reading = False
     found = False
     line_cnt = 0
     fd_quad = []
-    for i in range(1,Natom+1):
-        for xyz in ['x','y','z']:
-            for direction in ['m','p']:
-                s = str(i)+'_'+xyz+'_'+direction
-                os.chdir(root_dir + '/' + s)
+    for d in dirNames:
+                os.chdir(root_dir + '/' + d)
                 one_quad = np.zeros( (9,3) )
                 with open('output.dat', "r") as fquad:
                     for line in fquad:

@@ -37,6 +37,7 @@ pc_h               = constants.h
 pc_hartree2ev      = constants.hartree2ev
 km_convert         = pc_hartree2J / (pc_bohr2m * pc_bohr2m * pc_amu2kg * pc_au2amu)
 cm_convert         = 1.0 / (2.0 * pi * pc_c * 100.0)
+from psi4.core import print_out
 
 
 # Provided for caller of scatter.
@@ -70,7 +71,7 @@ def scatter(
         calc_type='Calc Type',  # for output, if desired
         nbf=None, #for output, if desired
         mode2decompose=1,
-        pr=print
+        pr=print_out
       ):
 
     Natom = len(geom)
