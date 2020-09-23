@@ -37,8 +37,6 @@ pc_h               = constants.h
 pc_hartree2ev      = constants.hartree2ev
 km_convert         = pc_hartree2J / (pc_bohr2m * pc_bohr2m * pc_amu2kg * pc_au2amu)
 cm_convert         = 1.0 / (2.0 * pi * pc_c * 100.0)
-from psi4.core import print_out
-
 
 # Provided for caller of scatter.
 def omega_in_au(value, unit='au'):
@@ -71,11 +69,11 @@ def scatter(
         calc_type='Calc Type',  # for output, if desired
         nbf=None, #for output, if desired
         mode2decompose=1,
-        pr=print_out
+        pr=print
       ):
 
     Natom = len(geom)
-    pr("\nInput coordinates (bohr)\n")
+    pr("\nScatter input geom (bohr)\n")
     for a in range(Natom):
         pr("%15.10f%15.10f%15.10f\n" % (geom[a,0],geom[a,1],geom[a,2]))
 
@@ -125,7 +123,6 @@ def scatter(
         s += "\t*** Dipole/Quadrupole Derivative Tensors ***\n\n"
         for i in range(len(Q_grad)):
             s += Q_grad[i].__str__() + '\n'
-        s += "\n"
         pr(s)
         #with open("tender.dat", "w") as f:
         #    f.write(s)
@@ -151,14 +148,14 @@ def scatter(
     for i in range(Natom):
         pr("\t%5d %12.8f\n" % (i+1, masses[i]) )
 
-    pr("\tMass-Weighted Coordinates relative to COM\n")
+    pr("\n\tMass-Weighted Coordinates relative to COM\n")
     if print_lvl > 1:
         for a in range(Natom):
             pr("%15.10f%15.10f%15.10f\n" % (mwGeom[a,0],mwGeom[a,1],mwGeom[a,2]))
 
     Iinv = inertiaTensorInverse(comGeom, masses)
     if print_lvl > 1:
-        pr("\tInertia Tensor Inverse\n")
+        pr("\n\tInertia Tensor Inverse\n")
         pr(str(Iinv)+'\n')
 
     # Generate 6 rotation and translation vectors to project out of Hessian
@@ -198,7 +195,7 @@ def scatter(
     F[:] = np.dot(P.T, T)
 
     if print_lvl >= 2:
-        pr("\tMass-weighted, projected Hessian\n")
+        pr("\n\tMass-weighted, projected Hessian\n")
         pr(str(F)+'\n')
 
     Fevals, Fevecs = symmMatEig(F) # rows of Fevecs are eigenvectors
@@ -207,7 +204,7 @@ def scatter(
     Lx = np.dot(M, Fevecs.T)
 
     if print_lvl >= 2:
-        pr("\tNormal transform matrix u^(-1/2) * Hmw_evects\n")
+        pr("\n\tNormal transform matrix u^(-1/2) * Hmw_evects\n")
         pr(str(Lx)+'\n')
 
     redmass = np.zeros( (3*Natom) )
@@ -239,7 +236,7 @@ def scatter(
     # A_der_q is 9 x 3*Natom
     A_der_q_tmp = np.dot(A_der.T, Lx)
     if print_lvl >= 2:
-        pr("\tPolarizability Derivatives in Normal Coord.\n")
+        pr("\n\tPolarizability Derivatives in Normal Coord.\n")
         pr(str(A_der_q_tmp)+'\n')
 
     # Reorganize list of 3x3 polarizability derivatives for each Cartesian coordinate
@@ -277,7 +274,7 @@ def scatter(
     # Transform dipole/quadrupole tensor derivatives to normal coordinates
     Q_der_q_tmp = np.dot(Q_der.T, Lx)
     if print_lvl >= 2:
-        pr("Dipole/Quadrupole Tensor Derivatives in Normal Coord.\n")
+        pr("\nDipole/Quadrupole Tensor Derivatives in Normal Coord.\n")
         pr(str(Q_der_q_tmp)+'\n')
 
     Q_der_q = np.zeros( (3*Natom,3,3,3) )
@@ -419,10 +416,10 @@ def scatter(
     #    Q_reldev_delta_z[i]   =  -8.0 * betaA2[i] / (4.0 * (6.0 * beta_G2[i] - 2.0 * betaA2[i]))
 
     #pr("----------------------------------------------------------------------\n")
-    #pr("    Fraction of total value comprised of the quadrupole term. \n"      )
+    #pr("    Fraction of total value comprised of the quadrupole term.\n")
     #pr("----------------------------------------------------------------------\n")
-    #pr("     Harmonic Freq.  Delta_z    Delta_x     Delta      Delta \n"   )
-    #pr("       (cm^-1)         (90)       (90)        (0)      (180)  \n"  )
+    #pr("     Harmonic Freq.  Delta_z    Delta_x     Delta      Delta\n")
+    #pr("       (cm^-1)         (90)       (90)        (0)      (180)\n")
     #pr("----------------------------------------------------------------------\n")
 
     ##for i in range(3*Natom-1, -1, -1): # relative differences

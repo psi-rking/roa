@@ -12,6 +12,7 @@ from .mode_scatter import modeVectors, modeScatter
 from sys import platform
 from .plot import discretizedSpectrum
 from . import Psi4ROA
+from . import cfour
 try:
   import matplotlib
   if platform != 'darwin':

@@ -217,7 +217,7 @@ class SPECTRUM(object):
             self.data['Raman Intensity (linear)']  = np.array( RamanLinear )
             self.data['Raman Intensity (circular)'] = np.array( RamanCircular )
             self.data['Calculation Type']   = wfn + '/' + basis
-        if filename[-4:] == '.out':
+        if filename[-4:] in ['.out', '.dat']:
             self.filename = filename[:-4]
         else:
             self.filename = filename
@@ -226,7 +226,7 @@ class SPECTRUM(object):
         if len(s.data['Frequency']) != len(o.data['Frequency']):
             raise Exception('Spectra cannot be compared')
 
-        if keys == None:
+        if keys is None:
             keys = defaultKeys
 
         diff = np.zeros( len(keys) )
@@ -239,7 +239,7 @@ class SPECTRUM(object):
         if len(s.data['Frequency']) != len(o.data['Frequency']):
             raise('spectra cannot be compared')
 
-        if keys == None:
+        if keys is None:
             keys = defaultKeys
 
         diff = np.zeros( len(keys) )
@@ -253,7 +253,7 @@ class SPECTRUM(object):
         if len(s.data['Frequency']) != len(o.data['Frequency']):
             raise('spectra cannot be compared')
 
-        if keys == None:
+        if keys is None:
             keys = defaultKeys
 
         diff = np.zeros( len(keys) )
@@ -265,7 +265,7 @@ class SPECTRUM(object):
         if len(s.data['Frequency']) != len(o.data['Frequency']):
             raise('spectra cannot be compared')
 
-        if keys == None:
+        if keys is None:
             keys = defaultKeys
 
         diff = np.zeros( len(keys) )

@@ -42,7 +42,7 @@ from psi4.core import print_out
 
 # Return the vectors along which to displace for finite differences
 # and ROA analysis.
-def modeVectors(geom, masses, hessian, modesToReturn=None, print_lvl=1, pr=print_out):
+def modeVectors(geom, masses, hessian, modesToReturn=None, print_lvl=1, pr=print):
         # geom,      # (Natom,3) Cartesian coordinates of nuclei
         # masses,    # atomic masses
         # hessian    # (3*Natom,3*Natom) Cartesian 2nd derivative
@@ -60,18 +60,18 @@ def modeVectors(geom, masses, hessian, modesToReturn=None, print_lvl=1, pr=print
         for xyz in range(3):
             mwGeom[i][xyz] = comGeom[i][xyz] * sqrt(masses[i])
 
-    pr("\tAtomic Masses for Raman Computation:\n")
+    pr("\n\tAtomic Masses for Raman Computation:\n")
     for i in range(Natom):
         pr("\t%5d %12.8f\n" % (i+1, masses[i]) )
 
     if print_lvl > 1:
-        pr("\tMass-Weighted Coordinates relative to COM\n")
+        pr("\n\tMass-Weighted Coordinates relative to COM\n")
         for a in range(Natom):
             pr("\t%15.10f%15.10f%15.10f\n" % (mwGeom[a,0],mwGeom[a,1],mwGeom[a,2]))
 
     Iinv = inertiaTensorInverse(comGeom, masses)
     if print_lvl > 1:
-        pr("\tInertia Tensor Inverse\n")
+        pr("\n\tInertia Tensor Inverse\n")
         pr(str(Iinv)+'\n')
 
     # Generate 6 rotation and translation vectors to project out of Hessian
@@ -111,7 +111,7 @@ def modeVectors(geom, masses, hessian, modesToReturn=None, print_lvl=1, pr=print
     F[:] = np.dot(P.T, T)
 
     if print_lvl > 2:
-        pr("\tMass-weighted, projected Hessian\n")
+        pr("\n\tMass-weighted, projected Hessian\n")
         pr(str(F)+'\n')
 
     Fevals, Fevecs = symmMatEig(F) # rows of Fevecs are eigenvectors
@@ -120,7 +120,7 @@ def modeVectors(geom, masses, hessian, modesToReturn=None, print_lvl=1, pr=print
     Lx = np.dot(M, Fevecs.T)
 
     if print_lvl > 2:
-        pr("\tNormal transform matrix u^(-1/2) * Hmw_evects\n")
+        pr("\n\tNormal transform matrix u^(-1/2) * Hmw_evects\n")
         pr(str(Lx)+'\n')
 
     freqs    = np.zeros(3*Natom)
@@ -130,7 +130,7 @@ def modeVectors(geom, masses, hessian, modesToReturn=None, print_lvl=1, pr=print
         else:
             freqs[i] = cm_convert * sqrt(km_convert * Fevals[i])
 
-    pr("\t----------------------\n")
+    pr("\n\t----------------------\n")
     pr("\t Mode #   Harmonic    \n")
     pr("\t            Freq.     \n")
     pr("\t           (cm-1)     \n")
@@ -142,7 +142,7 @@ def modeVectors(geom, masses, hessian, modesToReturn=None, print_lvl=1, pr=print
             pr("\t  %3d   %10.2f \n" % (i, freqs[i]))
 
     # Change!  Modes will be returned as rows
-    selected_modes = np.zeros( (len(modesToReturn,3*Natom)) )
+    selected_modes = np.zeros( (len(modesToReturn),3*Natom))
     #selected_modes = np.zeros( (3*Natom, len(modesToReturn)) )
     selected_freqs = np.zeros( len(modesToReturn) )
 
@@ -151,11 +151,11 @@ def modeVectors(geom, masses, hessian, modesToReturn=None, print_lvl=1, pr=print
         selected_modes[i,:] = Lx[:,mode]
         selected_freqs[i] = freqs[mode]
 
-    pr("Frequencies (with modes) returned from modeVectors.\n")
+    pr("\nFrequencies (with modes) returned from modeVectors.\n")
     pr(str(selected_freqs)+'\n')
 
     if print_lvl > 1:
-        pr("Vectors returned from modeVectors are rows.\n")
+        pr("\nVectors returned from modeVectors are rows.\n")
         pr(str(selected_modes)+'\n')
 
     return (selected_modes, selected_freqs)
