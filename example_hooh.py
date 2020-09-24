@@ -32,7 +32,7 @@ myROA.optimize('cc2') # returns geometry, if desired
 # myROA.analysis_geom = optgeom
 
 # Compute Hessian, generate file15
-myROA.compute_hessian('cc2','cfour')
+myROA.compute_hessian('cc2','cfour', c4executable='/home/rking/bin/run-cfour-21')
 # or,
 # myROA.compute_hessian('cc2','psi4')
 

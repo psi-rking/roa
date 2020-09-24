@@ -550,7 +550,8 @@ class ROA(object):
             raise Exception('Other muder prog not yet implemented')
         return
 
-    def compute_hessian(self, wfn, prog='psi4', geom=None, disp_points=3, disp_size=0.005, c4kw={}):
+    def compute_hessian(self, wfn, prog='psi4', geom=None, disp_points=3, disp_size=0.005,
+                        c4executable=None, c4kw={}):
         Natom = self.mol.natom()
         if prog.upper() == 'PSI4':
             print("Computing hessian with Psi4...")
@@ -592,9 +593,11 @@ class ROA(object):
             }
             kw.update(c4kw)
             atom_symbols = [self.mol.symbol(at) for at in range(self.mol.natom())]
+            if c4executable is None:
+                c4executable='run-cfour'
 
             c4 = CFOUR(self.analysis_geom_2D, atom_symbols, kw, title="hess-calc", 
-                             executable='/Users/rking/bin/run-cfour-2')
+                             executable=c4executable)
 
             c4.run()
             c4h = c4.parseHessian()  # read the hessian output file (FCMFINAL)
