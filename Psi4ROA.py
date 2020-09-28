@@ -293,7 +293,9 @@ class ROA(object):
         self.db.close()
         return
 
-    def update_status_fd_db(self, print_status=False):
+    # if jobs_in_progress, then partially complete output files will not be
+    # deleted.
+    def update_status_fd_db(self, print_status=False, jobs_in_progress=False):
         """ Checks sub_directories, updates db['job'] status 
             Return if completed. """
         cwd = os.getcwd() + '/'
@@ -307,7 +309,7 @@ class ROA(object):
                             if 'Psi4 exiting successfully' in line:
                                 job_info['status'] = 'completed'
                                 break
-                            else:
+                            elif jobs_in_progress:
                                 job_info['status'] = 'running'
                 except:
                     pass
@@ -317,7 +319,7 @@ class ROA(object):
 
         return self.alldone_fd_db
 
-    def fd_db_run(self, executable, nThreads=1):
+    def fd_db_run(self, executable, nThreads=1, jobs_in_progress=False):
         print('Running finite-difference computations.')
         self.pr('(ROA) Running finite-difference computations.\n')
         cwd = os.getcwd() + '/'
@@ -339,7 +341,7 @@ class ROA(object):
                     b.clear()
             yield b
 
-        self.update_status_fd_db(print_status=True)
+        self.update_status_fd_db(print_status=True, jobs_in_progress=False)
         todo = [lbl for lbl,info in self.db['jobs'].items() if info['status'] == 'not_started']
         print('Remaining jobs todo: {}'.format(str(todo)))
         self.pr('(ROA) Remaining jobs todo: {}\n'.format(str(todo)))
