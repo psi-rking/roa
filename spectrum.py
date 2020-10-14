@@ -96,6 +96,9 @@ class SPECTRUM(object):
         IRIntensity = []
         RamanLinear  = []
         RamanCircular  = []
+        wfn = ''
+        basis = ''
+        nbf = 0
 
         with open(filename,'r') as f:
             startInvariants = 0
@@ -119,7 +122,7 @@ class SPECTRUM(object):
 
                 if len(words) > 4:
                     if words[0] == 'Number' and words[1] == 'of' and words[2] == 'basis':
-                        self.data['Number of basis functions'] = int(words[4])
+                        nbf = int(words[4])
         
                 if startInvariants:
                    toInvariantsLine += 1
@@ -217,6 +220,7 @@ class SPECTRUM(object):
             self.data['Raman Intensity (linear)']  = np.array( RamanLinear )
             self.data['Raman Intensity (circular)'] = np.array( RamanCircular )
             self.data['Calculation Type']   = wfn + '/' + basis
+            self.data['Number of basis functions'] = nbf
         if filename[-4:] in ['.out', '.dat']:
             self.filename = filename[:-4]
         else:
