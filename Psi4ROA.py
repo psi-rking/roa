@@ -357,7 +357,7 @@ class ROA(object):
                 t.join()
         core.clean()
 
-    def analyze_ROA(self, name='CC', gauge='LENGTH', geom=None, masses=None, print_lvl=2):
+    def analyze_ROA(self, name='CC', gauge='VELOCITY', geom=None, masses=None, print_lvl=2):
         """
           name is just a label for the dictionary output, could be driver/wfn
           gauge one or more gauges to analyze
@@ -401,7 +401,7 @@ class ROA(object):
             'BOTH': ['Length', 'Modified Velocity']
         }
 
-        for g in gauge_todo_options[gauge]:
+        for g in gauge_todo_options[gauge.upper()]:
             self.pr('Doing analysis (scatter function) for %s\n' % g)
 
             fd_rot = roa.psi4_read_optical_rotation_tensor(
