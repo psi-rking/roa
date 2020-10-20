@@ -27,9 +27,11 @@ psi4.set_options(psi4_options)
 myROA = roa.Psi4ROA.ROA(mol, pr=psi4.core.print_out)
 
 # Set geometry.
-myROA.optimize('cc2') # returns geometry, if desired
-# or, if not optimizing
-# myROA.analysis_geom = optgeom
+optGeom, json_opt_output = myROA.optimize('cc2')
+# This will add the output of the opt to the psi4 output file.
+psi4.core.print_out(json_opt_output['trajectory'][-1]['stdout'])
+# or, if not optimizing:
+# myROA.analysis_geom = np.array([ insert xyz coordinates ])
 
 # Compute Hessian, generate file15
 myROA.compute_hessian('cc2','cfour', c4executable='/home/rking/bin/run-cfour-21')

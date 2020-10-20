@@ -50,7 +50,7 @@ class ROA(object):
         self.E = json_output['energies'][-1]
         self.NRE = json_output['trajectory'][-1]['properties']['nuclear_repulsion_energy']
         self._analysis_geom = np.array(json_output['final_molecule']['geometry'])
-        return self.analysis_geom_2D
+        return self.analysis_geom_2D, json_output
 
     @property
     def analysis_geom(self):
