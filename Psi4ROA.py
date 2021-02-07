@@ -44,7 +44,6 @@ class ROA(object):
         self.vib_modes = None #number of modes if dips are normal mode
     
     def optimize(self, wfn):
-        print('Optimizing geometry.')
         self.pr('(ROA) Optimizing geometry.\n')
         json_output = optking.optimize_psi4(wfn)
         self.E = json_output['energies'][-1]
@@ -75,7 +74,6 @@ class ROA(object):
     def make_coordinate_vectors(self, vib_modes=None, geom=None, hessian=None, masses=None):
         """ vib_modes: (list of ints) indicating number of vibrational mode
             along which to displace.  1 means highest frequency mode."""
-        print('Making displacement vectors.')
         self.pr('(ROA) Making displacement vectors.\n')
 
         Natom = self.mol.natom()
@@ -119,7 +117,6 @@ class ROA(object):
 
     # Generates disp labels and geometries.
     def fd_db_make_displaced_geoms(self):
-        print('Making displaced geometries for (3-pt.) finite-differences.')
         self.pr('(ROA) Making displaced geometries for (3-pt.) finite-differences.\n')
         Natom = self.mol.natom()
         disp_size = self.db['ROA_disp_size']
@@ -181,7 +178,7 @@ class ROA(object):
         return True if self.remaining_fd_db == 0 else False
 
     def fd_db_init(self, wfn, prop, properties_array, omega=None, ROA_disp_size=0.005,
-                   additional_kwargs=None):
+                   just_open=False, additional_kwargs=None):
         """
         wfn:  (string) name as passed to calling driver
         prop: (string) the property being computed
@@ -194,6 +191,7 @@ class ROA(object):
         """
 
         self.db = shelve.open('fd-database', writeback=True)
+        if just_open: return
 
         # Create db backup if complete already.
         if '{}_computed'.format(prop) in self.db:
@@ -252,7 +250,6 @@ class ROA(object):
         Returns: nothing
         On exit, db['inputs_generated'] has been set True
         """
-        print('Generating input files. overwrite={}'.format(overwrite))
         self.pr('(ROA) Generating input files. overwrite={}\n'.format(overwrite))
         cwd = os.getcwd() + '/'
         Natom = self.mol.natom()
@@ -320,13 +317,11 @@ class ROA(object):
         return self.alldone_fd_db
 
     def fd_db_run(self, executable, nThreads=1, jobs_in_progress=False):
-        print('Running finite-difference computations.')
         self.pr('(ROA) Running finite-difference computations.\n')
         cwd = os.getcwd() + '/'
         # Want to change to json later.
         def runDisp(subDir):
             rootDir = os.getcwd() + '/'
-            print("Running displacement %s" % subDir)
             self.pr("Running displacement %s\n" % subDir)
             rc = subprocess.run(executable,cwd=rootDir+'/'+subDir)
             if rc.returncode != 0:
@@ -343,7 +338,6 @@ class ROA(object):
 
         self.update_status_fd_db(print_status=True, jobs_in_progress=False)
         todo = [lbl for lbl,info in self.db['jobs'].items() if info['status'] == 'not_started']
-        print('Remaining jobs todo: {}'.format(str(todo)))
         self.pr('(ROA) Remaining jobs todo: {}\n'.format(str(todo)))
 
         fd_threads = []
@@ -364,12 +358,11 @@ class ROA(object):
           These only need set if doing a restart without remaking displacements
             geometry: only used here if normal mode analysis not get done.
         """
-        print('Analyzing ROA spectrum.')
         self.pr('(ROA) Analyzing ROA spectrum.\n')
         self.update_status_fd_db()
         if not self.alldone_fd_db:
             self.pr('Finite difference computations not all complete.\n')
-            self.update_status_fd_db(pr=True)
+            self.update_status_fd_db()#pr=True)
             return
 
         Natom = self.mol.natom()
@@ -450,7 +443,6 @@ class ROA(object):
             # Lacking analytic derivatives, we will do fd of applied electric fields.  We
             # alternately apply + and - electric fields in the x, y, and z directions, and
             # then take finite differences to get the dipole moment derivatives.
-            print("Computing dipole moment derivatives with Psi4 by f.d...")
             self.pr("(ROA) Computing dipole moment derivatives with Psi4 by f.d...\n")
 
             #Prepare geometry
@@ -509,7 +501,6 @@ class ROA(object):
                 f.write('{0:20.10f}{1:20.10f}{2:20.10f}\n'.format(DmuzDx.get(i,0), DmuzDx.get(i,1), DmuzDx.get(i,2)))
             f.close()
         elif prog.upper() == 'CFOUR':
-            print("Reading dipole moment derivatives from CFOUR's DIPDER.")
             self.pr("(ROA) Reading dipole moment derivatives from CFOUR's DIPDER.\n")
             kw = {
               'CALC'     : wfn.upper(),
@@ -556,7 +547,6 @@ class ROA(object):
                         c4executable=None, c4kw={}):
         Natom = self.mol.natom()
         if prog.upper() == 'PSI4':
-            print("Computing hessian with Psi4...")
             self.pr("(ROA) Computing hessian with Psi4...\n")
 
             #Prepare geometry
@@ -577,7 +567,6 @@ class ROA(object):
               f.write('{0:20.10f}{1:20.10f}{2:20.10f}\n'.format(npHess[i][0],npHess[i][1],npHess[i][2]))
             f.close()
         elif prog.upper() == 'CFOUR':
-            print("Computing hessian with CFOUR...")
             self.pr("(ROA) Computing hessian with CFOUR...\n")
             kw = {
               'CALC'     : wfn.upper(),

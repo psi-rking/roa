@@ -57,14 +57,14 @@ def psi4_read_polarizabilities(dirNames, omega):
                         if len(words) > 4:
                             if words[1] == 'Dipole' and words[2] == 'Polarizability':
                                 reading = True
-                        if line_cnt == 2:
+                        if line_cnt == 1:
                             if (abs(omega)-float(words[4]) > 1e-5):
                                 reading = False
                                 line_cnt = 0
-                        elif line_cnt in [7,8,9]:
+                        elif line_cnt in [6,7,8]:
                             for a in range(3):
-                                one_pol[line_cnt-7][a] = float(words[1+a])
-                        elif line_cnt == 10:
+                                one_pol[line_cnt-6][a] = float(words[1+a])
+                        elif line_cnt == 9:
                             line_cnt = 0
                             reading = False
                             found = True

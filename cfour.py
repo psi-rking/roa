@@ -19,7 +19,7 @@ class CFOUR(object):
     else:
         self.keywords['BASIS'] = CFOUR.format_basis(self.keywords['BASIS'])
         if 'SPECIAL_BASIS' in self.keywords:
-            print('ignoring SPECIAL_BASIS')
+            # print('ignoring SPECIAL_BASIS')
             self.keywords.pop('SPECIAL_BASIS')
     
     self.keywords['COORD'] = 'CARTESIAN'
@@ -30,10 +30,12 @@ class CFOUR(object):
     if scratchName is None:
         scratchName = self.title.replace(' ','')
     self.makeZMAT()
-    print("Launching CFOUR executable...")
+    # print("Launching CFOUR executable...")
     # returns CompletedProcess()
-    rc = subprocess.run([self.executable, scratchName])
+    rc = subprocess.run([self.executable, scratchName], capture_output=True)
     if rc.returncode != 0:
+        print(rc.stdout)
+        print(rc.stderr)
         raise Exception('Bad return code from CFOUR')
 
   def makeZMAT(self, fp=None):
