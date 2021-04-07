@@ -12,12 +12,12 @@ mol = psi4.geometry("""
  """)
 
 psi4.core.set_output_file('psi-out.dat')
-psi4.set_memory('4 GB')
+psi4.set_memory('200 GB')
 
 omega = [532, 'nm']
 gauge = 'VELOCITY'
 psi4_options = {
-  'basis' : 'cc-pvdz',
+  'basis' : 'sadlej-lpol-fs',
   'omega' : omega,
   'gauge' : gauge,
 }
@@ -39,6 +39,8 @@ myROA.compute_hessian('cc2','cfour', c4executable='/home/rking/bin/run-cfour-21'
 # or,
 # myROA.compute_hessian('cc2','psi4')
 
+psi4.set_memory('40 GB')
+
 # Compute dipole moment derivatives, generate file17
 # Actually, this reads (not computes) from DIPDER
 myROA.compute_dipole_derivatives('cc2','cfour')
@@ -48,7 +50,8 @@ myROA.compute_dipole_derivatives('cc2','cfour')
 # Initialize database for finite-differences of tensors.
 myROA.fd_db_init('cc2', 'roa', ['roa_tensor'], omega, 0.005)
 
-vib_modes = [1,2,3] # To do only the 3 normal modes of highest frequency
+#vib_modes = [1,2,3] # To do only the 3 normal modes of highest frequency
+vib_modes = [i+1 for i in range(6)]
 myROA.make_coordinate_vectors(vib_modes)
 # or,
 # to do all 3N Cartesian displacements
@@ -60,7 +63,7 @@ myROA.fd_db_show() #see what's in there, if desired
 myROA.fd_db_generate_inputs('cc2', overwrite=False)
 
 # Run the fd computations
-myROA.fd_db_run(psi4.executable, nThreads=5)
+myROA.fd_db_run(psi4.executable, nThreads=6)
 
 # Currently, analyze_ROA reads from files
 # file15.dat nuclear second derivatives
