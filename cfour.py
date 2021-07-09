@@ -44,13 +44,19 @@ class CFOUR(object):
         s += "%s%17.12f%17.12f%17.12f\n" % (self.symbols[i],
                self.xyz[i][0],self.xyz[i][1],self.xyz[i][2])
     s += '\n' + "*CFOUR("
+
+    # gets ignored anyway, but lets remove it for tidyness
+    zmat_keywords = self.keywords.copy()
+    if 'SPECIAL_BASIS' in zmat_keywords:
+        zmat_keywords.pop('SPECIAL_BASIS')
+
     tab = 0
     cnt = 0
-    for k,v in self.keywords.items():
+    for k,v in zmat_keywords.items():
         cnt += 1
         s += "%s=%s" % (k,v)
         tab += 1
-        if cnt == len(self.keywords):
+        if cnt == len(zmat_keywords):
             s += ')\n'
         elif tab == 5:
             s += '\n'

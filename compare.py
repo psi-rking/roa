@@ -127,7 +127,7 @@ def compareSpectra(Sref, Stest, propKeys, alignModes, okThreshold):
         v = [o[j] for j in range(len(lblDev))]
         best.append(v)
 
-    fieldwidth = 22
+    fieldwidth = 25
     
     print("-" * fieldwidth * len(propKeys[0:4]))
     print("Ranked by RMS deviation from %s (%d). Best on top." %
@@ -143,7 +143,8 @@ def compareSpectra(Sref, Stest, propKeys, alignModes, okThreshold):
         s = ""
         for i, b in enumerate(best[0:4]):
            if aveRelAbsDev[b[place], i] < okThreshold:
-                s += "{0:>{1}}".format(lblDev[ b[place] ] + '(' + str(nbfDev[ b[place] ]) +')', fieldwidth)
+                s += "{0:<{1}}".format(('(' + str(nbfDev[ b[place] ]) + ')' +
+                             lblDev[b[place]])[0:24], fieldwidth)
            else:
                s += fieldwidth * " "
         print(s)
@@ -166,7 +167,8 @@ def compareSpectra(Sref, Stest, propKeys, alignModes, okThreshold):
         s = ""
         for i, b in enumerate(best[4:]):
            if aveRelAbsDev[b[place], 4+i] < okThreshold:
-               s += "{0:>{1}}".format(lblDev[ b[place]]+ '(' + str(nbfDev[ b[place] ]) +')', fieldwidth)
+               s += "{0:<{1}}".format(('(' + str(nbfDev[ b[place] ]) + ')' +
+                            lblDev[b[place]])[0:24], fieldwidth)
            else:
                s += fieldwidth * " "
         print(s)

@@ -52,7 +52,7 @@ def compareBroadenedSpectra(fileRef, filesToTest, spectraToTest, Xmin=100,
     areaDiff = {}
     for spectrumType in spectraToTest:
         peaks1 = list(zip(spRef.data[variableX], spRef.data[spectrumType]))
-        print(peaks1)
+        #print(peaks1)
         areaDiff[spectrumType] = {}
         areaDiff[spectrumType + ' Relative'] = {}
         areaAbsRef = computeAbsArea(peaks1, Xmin, Xmax, Npts, width, peakType)
@@ -67,14 +67,14 @@ def compareBroadenedSpectra(fileRef, filesToTest, spectraToTest, Xmin=100,
         print(f'Area of Absolute Difference for {spectrumType:s}:')
         sortedProperty = sorted(areaDiff[spectrumType].items(), key=lambda x: x[1], reverse=True)
         for entries in sortedProperty:
-            print(f'{entries[0]:20s}{entries[1]:10.5f}')
+            print(f'{entries[0]:>30s}{entries[1]:>10.5f}')
     
     for spectrumType in spectraToTest:
         print(f'Area of Percent Difference for {spectrumType:s}:')
         sortedProperty = sorted(areaDiff[spectrumType + ' Relative'].items(),
                                 key=lambda x: x[1], reverse=True)
         for entries in sortedProperty:
-            print(f'{entries[0]:20s}{100*entries[1]:>10.2f}')
+            print(f'{entries[0]:>30s}{100*entries[1]:>10.2f}')
     return
 
 
