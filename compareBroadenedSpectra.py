@@ -56,6 +56,7 @@ def compareBroadenedSpectra(fileRef, filesToTest, spectraToTest, Xmin=100,
         areaDiff[spectrumType] = {}
         areaDiff[spectrumType + ' Relative'] = {}
         areaAbsRef = computeAbsArea(peaks1, Xmin, Xmax, Npts, width, peakType)
+        areaDiff[spectrumType]['Abs Area of Ref'] = areaAbsRef
         print(f'Absolute Area of reference spectrum {areaAbsRef:10.5f}')
 
         for f in filesToTest:
@@ -75,6 +76,6 @@ def compareBroadenedSpectra(fileRef, filesToTest, spectraToTest, Xmin=100,
                                 key=lambda x: x[1], reverse=True)
         for entries in sortedProperty:
             print(f'{entries[0]:>30s}{100*entries[1]:>10.2f}')
-    return
+    return areaDiff
 
 

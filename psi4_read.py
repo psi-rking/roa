@@ -57,6 +57,10 @@ def psi4_read_polarizabilities(dirNames, omega):
                         if len(words) > 4:
                             if words[1] == 'Dipole' and words[2] == 'Polarizability':
                                 reading = True
+                                # total hack because CCSD output has a line of
+                                # dashes lacking for CC2
+                                if words[0] == 'CCSD':
+                                    line_cnt = -1
                         if line_cnt == 1:
                             if (abs(omega)-float(words[4]) > 1e-5):
                                 reading = False
