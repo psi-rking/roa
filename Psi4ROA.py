@@ -196,7 +196,8 @@ class ROA(object):
         # Create db backup if complete already.
         if '{}_computed'.format(prop) in self.db:
             if self.db['roa_computed']: # if True, old results are in here.
-                db2 = shelve.open('fd-database.bak', writeback=True)
+                #db2 = shelve.open('fd-database.bak', writeback=True)
+                db2 = shelve.open('fd-db-old-roa', writeback=False)
                 for key,value in self.db.items():
                     db2[key]=value
                 db2.close()
@@ -544,7 +545,7 @@ class ROA(object):
         return
 
     def compute_hessian(self, wfn, prog='psi4', geom=None, disp_points=3, disp_size=0.005,
-                        c4executable=None, c4kw={}):
+                        c4executable=None, c4kw={}, subdir='hess-calc'):
         Natom = self.mol.natom()
         if prog.upper() == 'PSI4':
             self.pr("(ROA) Computing hessian with Psi4...\n")
@@ -587,9 +588,10 @@ class ROA(object):
             if c4executable is None:
                 c4executable='run-cfour'
 
-            c4 = CFOUR(self.analysis_geom_2D, atom_symbols, kw, title="hess-calc", 
+            c4 = CFOUR(self.analysis_geom_2D, atom_symbols, kw, title=subdir, 
                              executable=c4executable)
 
+            #c4.run(scratchName='C4-Hess-' + str(os.getpid()))
             c4.run()
             c4h = c4.parseHessian()  # read the hessian output file (FCMFINAL)
             # Now rotate the Hessian into the original input orientation; fancy!
