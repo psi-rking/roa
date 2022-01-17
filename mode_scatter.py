@@ -813,6 +813,8 @@ def zeta(A, B):
             value += 0.5 * (3.0 * A[i, j] * B[i, j] - A[i, i] * B[j, j])
     return value
 
+# For definition of robustness parameters phi and psi, see 
+# dx.doi.org/10.1021/ct500697e | J. Chem. Theory Comput. 2014, 10, 5520−5527
 def f_robustnessPhi(A,G):
     cosPhi = zeta(A,G) / sqrt( zeta(A,A) * zeta(G,G) )
     phi = acos(cosPhi) * 180.0 / pi

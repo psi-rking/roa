@@ -3,7 +3,8 @@ import roa
 
 # Read a dictionary file and print the ROA parameters.
 sp = roa.SPECTRUM()
-sp.readDictionaryOutputFile('cc2-631Gs.sp.out')
+sp.readDictionaryOutputFile('6-31+Gs-cc2.sp.out')
+
 # (For backward compatibility with old psi4), read ROA parameters from 
 # an old psi4 output file.
 # sp.readPsi4OutputFile('psi-out.dat')
