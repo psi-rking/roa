@@ -37,7 +37,97 @@ pc_h               = constants.h
 pc_hartree2ev      = constants.hartree2ev
 km_convert         = pc_hartree2J / (pc_bohr2m * pc_bohr2m * pc_amu2kg * pc_au2amu)
 cm_convert         = 1.0 / (2.0 * pi * pc_c * 100.0)
-from psi4.core import print_out
+from psi4.core import print_out, BasisSet
+from psi4.driver import qcdb
+
+def modeVectorsQCDB(mol, hessian, modesToReturn=None, print_lvl=1, pr=print):
+    Natom = mol.natom()
+    geom = mol.geometry().to_array()
+    masses = np.asarray([mol.mass(at) for at in range(Natom)])
+    atom_symbols = [mol.symbol(at) for at in range(Natom)] 
+
+    pr("\n\tCalculating normal modes; Input coordinates (bohr)\n")
+    for i in range(Natom):
+        pr("\t{:5s}{:10.5f}{:15.10f}{:15.10f}{:15.10f}\n".format(
+           atom_symbols[i],masses[i],geom[i,0],geom[i,1],geom[i,2]))
+
+    basis = BasisSet.build(mol) # dummy bs to lookup symmetry info
+    irrep_lbls = mol.irrep_labels() # labels of IRREPs if molecule has symmetry
+    dipder = None  # unneeded dipole-moment derivatives unless we add intensities
+
+    vibinfo, vibtext = qcdb.vib.harmonic_analysis(hessian, geom, masses, basis,
+                        irrep_lbls, dipder, project_trans=True, project_rot=True)
+
+    # pr(vibtext)
+    freqs = vibinfo['omega'].data.real
+    # modes from vibinfo are unmass-weighted, not normalized, returned as cols
+    # in amu^-1/2 ; convert here to au^-1/2
+    modes = sqrt(pc_au2amu) * vibinfo['w'].data.T
+
+    # Resort from high to low freqs
+    modes[:] = np.flip(modes, axis=0)
+    freqs[:] = np.flip(freqs)
+
+    pr("\n\t----------------------\n")
+    pr("\t Mode #   Harmonic      \n")
+    pr("\t          Freq. (cm-1)  \n")
+    pr("\t------------------------\n")
+    for i in range(0,3*Natom):
+        if freqs[i] < 0.0:
+            pr("\t  %3d   %10.2fi\n" % (i, abs(freqs[i])))
+        else:
+            pr("\t  %3d   %10.2f \n" % (i, freqs[i]))
+
+    selected_modes = np.zeros( (len(modesToReturn),3*Natom))
+    selected_freqs = np.zeros( len(modesToReturn) )
+
+    for i, mode in enumerate(modesToReturn):
+        selected_modes[i,:] = modes[mode,:]
+        selected_freqs[i] = freqs[mode]
+
+    pr("\nFrequencies (with modes) returned from modeVectorsPsi4.\n")
+    pr(str(selected_freqs)+'\n')
+
+    if print_lvl > 1:
+        pr("\nVectors returned from modeVectorsPsi4 are rows.\n")
+        pr(str(selected_modes)+'\n')
+
+    return (selected_modes, selected_freqs)
+
+
+"""
+# Stolen from qcdb; make col phase canonical
+def _phase_cols_to_max_element(arr, tol=1.e-2, verbose=1):
+    ""Returns copy of 2D `arr` scaled such that, within cols, max(fabs)
+    element is positive. If max(fabs) is pos/neg pair, scales so first
+    element (within `tol`) is positive.
+    ""
+    arr2 = np.copy(arr)
+
+    rephasing = []
+    for v in range(arr.shape[1]):
+        vextreme = 0.0
+        iextreme = None
+
+        # find most extreme value
+        for varr in arr[:, v]:
+            vextreme = max(np.absolute(varr), vextreme)
+
+        # find the first index whose fabs equals that value, w/i tolerance
+        for iarr, varr in enumerate(arr[:, v]):
+            if (vextreme - np.absolute(varr)) < tol:
+                iextreme = iarr
+                break
+
+        sign = np.sign(arr[iextreme, v])
+        if sign == -1.:
+            rephasing.append(str(v))
+        arr2[:, v] *= sign
+
+    if rephasing and verbose >= 2:
+        print('Negative modes rephased:', ', '.join(rephasing))
+
+    return arr2
 
 
 # Return the vectors along which to displace for finite differences
@@ -97,7 +187,7 @@ def modeVectors(geom, masses, hessian, modesToReturn=None, print_lvl=1, pr=print
                             P[i,j] +=  -1.0 * levi(a, b, icart) * mwGeom[iatom,b] * Iinv[a,c] * \
                                               levi(c, d, jcart) * mwGeom[jatom,d]
 
-    # Mass-weight the Hessian.  Will be [Eh/(bohr^2 amu)]
+    # Mass-weight the Hessian.  Will be [Eh/(bohr^2 au)]
     M = np.zeros( (3*Natom, 3*Natom) )
     for i in range(Natom):
         for j in range(3):
@@ -115,9 +205,21 @@ def modeVectors(geom, masses, hessian, modesToReturn=None, print_lvl=1, pr=print
         pr(str(F)+'\n')
 
     Fevals, Fevecs = symmMatEig(F) # rows of Fevecs are eigenvectors
-    Fevals[:] = np.flip(Fevals,0)
-    Fevecs[:] = np.flip(Fevecs,0)
+
+    # Resort for descending evals
+    idx = np.argsort(Fevals)[::-1] # descending evals
+    Fevals[:] = Fevals[idx]
+    Fevecs[:] = Fevecs[idx, :]
+    # use function that phase normalizes the columns
+    Fevecs = (_phase_cols_to_max_element(Fevecs.T, tol=1.e-2, verbose=1)).T
+    # matches qcdb: vibinfo['q'] == Datum('normal mode', 'a0 u^1/2',
+    #  qL, comment='normalized mass-weighted')
+
+    # Unmass-weighting destroys normalization going to au^-1/2.
     Lx = np.dot(M, Fevecs.T)
+    # matches qcdb: vibinfo['w'] = 
+    # Datum('normal mode', 'a0', wL, comment='un-mass-weighted')
+    # apart from mass unit
 
     if print_lvl > 2:
         pr("\n\tNormal transform matrix u^(-1/2) * Hmw_evects\n")
@@ -141,13 +243,10 @@ def modeVectors(geom, masses, hessian, modesToReturn=None, print_lvl=1, pr=print
         else:
             pr("\t  %3d   %10.2f \n" % (i, freqs[i]))
 
-    # Change!  Modes will be returned as rows
     selected_modes = np.zeros( (len(modesToReturn),3*Natom))
-    #selected_modes = np.zeros( (3*Natom, len(modesToReturn)) )
     selected_freqs = np.zeros( len(modesToReturn) )
 
     for i, mode in enumerate(modesToReturn):
-    #    selected_modes[:,i] = Lx[:,mode]
         selected_modes[i,:] = Lx[:,mode]
         selected_freqs[i] = freqs[mode]
 
@@ -199,6 +298,7 @@ def centerGeometry(geom, masses):
     for i in range(len(masses)):
         centeredGeom[i,:] = np.subtract( geom[i,:], com )
     return centeredGeom
+"""
 
 """
   modeScatter() function for ROA spectra
