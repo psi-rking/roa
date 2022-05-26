@@ -9,7 +9,7 @@ from .scatter import omega_in_au
 from .spectrum import SPECTRUM
 from .compare import compareOutputFiles, compareSpectraFiles, reorder
 from .compareBroadenedSpectra import compareBroadenedSpectra
-from .mode_scatter import modeVectors, modeScatter
+from .mode_scatter import modeVectorsQCDB, modeScatter
 from sys import platform
 from .plot import discretizedSpectrum
 from . import Psi4ROA

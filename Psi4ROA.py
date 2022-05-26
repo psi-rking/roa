@@ -9,12 +9,11 @@ import optking
 
 import psi4
 from psi4 import core, p4util
-from psi4.core import print_out
 from .cfour import CFOUR
 
 import roa
 
-import qcelemental as qcel
+from qcelemental import molutil, constants
 
 from collections.abc import Iterable
 def iterable(obj):
@@ -49,6 +48,9 @@ class ROA(object):
         self.E = json_output['energies'][-1]
         self.NRE = json_output['trajectory'][-1]['properties']['nuclear_repulsion_energy']
         self._analysis_geom = np.array(json_output['final_molecule']['geometry'])
+        # Put final geometry in the molecule too.
+        x = core.Matrix.from_array(self.analysis_geom_2D)
+        self.mol.set_geometry(x)
         return self.analysis_geom_2D, json_output
 
     @property
@@ -105,8 +107,11 @@ class ROA(object):
     
             # Do normal mode analysis and return the normal mode vectors (non-MW?) for
             # indices numbering from 0 (highest nu) downward. Modes returned as rows
-            (v, nu) = roa.modeVectors(geom,
-              masses, hessian, modes, 2, self.pr)
+            #(v, nu) = roa.modeVectors(geom, masses, hessian, modes, 1, self.pr)
+            (v, nu) = roa.modeVectorsQCDB(self.mol, hessian, modes, 1, self.pr)
+
+            # restore if harmonic analysis bumped geometry with an update()
+            self.mol.set_geometry(core.Matrix.from_array(geom))
     
             self.coord_xyzs = v
             self.vib_freqs = nu
@@ -187,6 +192,9 @@ class ROA(object):
         additional_kwargs: (list of strings) *optional*
             any additional kwargs that should go in the call to the
             properties() driver method in each subdir
+        ROA_disp_size:if disps are being done along normal modes, since mass of
+            coordinate is in au, should be a large # to get typical displacement (~43X)
+            so 0.2 is suggested.
         Returns: nothing
         """
 
@@ -527,7 +535,7 @@ class ROA(object):
         
             # Now rotate to input orientation
             c4coord = c4.parseGeometry()
-            rmsd, mill = qcel.molutil.B787(c4coord, self.analysis_geom_2D,
+            rmsd, mill = molutil.B787(c4coord, self.analysis_geom_2D,
                                            None, None, atoms_map=True, verbose=False)
             RotMat = mill.rotation
         
@@ -598,7 +606,7 @@ class ROA(object):
             c4h = c4.parseHessian()  # read the hessian output file (FCMFINAL)
             # Now rotate the Hessian into the original input orientation; fancy!
             c4coord = c4.parseGeometry()
-            rmsd, mill = qcel.molutil.B787(c4coord, self.analysis_geom_2D,
+            rmsd, mill = molutil.B787(c4coord, self.analysis_geom_2D,
                                            None, None, atoms_map=True, verbose=False)
             c4h[:] = mill.align_hessian(c4h)
             c4.writeFile15(c4h)
