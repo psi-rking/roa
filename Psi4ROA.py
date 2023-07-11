@@ -362,7 +362,8 @@ class ROA(object):
                 t.join()
         core.clean()
 
-    def analyze_ROA(self, name='CC', gauge='VELOCITY', geom=None, masses=None, print_lvl=2):
+    def analyze_ROA(self, name='CC', gauge='VELOCITY', geom=None, masses=None, print_lvl=2,
+                    analyzeModesPairwise=[1]):
         """
           name is just a label for the dictionary output, could be driver/wfn
           gauge one or more gauges to analyze
@@ -439,11 +440,12 @@ class ROA(object):
                 hessian = roa.psi4_read_hessian(Natom)
                 roa.scatter(geom, masses, hessian, dipder, self.db['omega'], self.db['ROA_disp_size'],
                   fd_pol, fd_rot, fd_quad, print_lvl=2, ROAdictName=sp_outfile, pr=self.pr,
-                  calc_type=lbl, nbf=NBF)
+                  calc_type=lbl, nbf=NBF, modes2decompose=analyzeModesPairwise)
             else:
                 roa.modeScatter(self.vib_modes, self.coord_xyzs, self.vib_freqs,
                     geom, masses, dipder, self.db['omega'], self.db['ROA_disp_size'], fd_pol, fd_rot,
-                    fd_quad, print_lvl=2, ROAdictName=sp_outfile, pr=self.pr, calc_type=lbl, nbf=NBF)
+                    fd_quad, print_lvl=2, ROAdictName=sp_outfile, pr=self.pr, calc_type=lbl, nbf=NBF,
+                    modes2decompose=analyzeModesPairwise)
 
         self.db['roa_computed'] = True
 
@@ -501,7 +503,7 @@ class ROA(object):
                         DmuzDx.set(A,xyz, val)
         
             core.set_global_option('PERTURB_H', 0)
-            core.set_global_option('PERTURB_DIPOLE', '')
+            core.set_global_option('PERTURB_DIPOLE', [])
             # write out a file17 with the dipole moment derivatives
             f = open('file17.dat', 'w')
             for i in range(N):
@@ -558,7 +560,9 @@ class ROA(object):
                         c4executable=None, c4kw={}, subdir='hess-calc'):
         Natom = self.mol.natom()
         if prog.upper() == 'PSI4':
-            self.pr("(ROA) Computing hessian with Psi4...\n")
+            core.set_local_option('FINDIF', 'POINTS', disp_points)
+            core.set_local_option('FINDIF', 'DISP_SIZE', disp_size)
+            self.pr("(ROA) Computing hessian with Psi4 (%d,%.4f)...\n" % (disp_points,disp_size))
 
             #Prepare geometry
             if geom is None:

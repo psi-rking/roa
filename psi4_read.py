@@ -74,7 +74,7 @@ def psi4_read_polarizabilities(dirNames, omega):
                             found = True
 
                 if not found:
-                    raise Exception("Can't find Dipole Polarizability for %s:%f" %(s,omega))
+                    raise Exception("Can't find Dipole Polarizability for %s:%f" %(d,omega))
                 fd_pol.append(one_pol)
                 line_cnt = 0
                 reading = False

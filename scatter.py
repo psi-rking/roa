@@ -68,7 +68,7 @@ def scatter(
         ROAdictName='spectra.dat', # name of dictionary output file
         calc_type='Calc Type',  # for output, if desired
         nbf=None, #for output, if desired
-        mode2decompose=1,
+        modes2decompose=[1],
         pr=print
       ):
 
@@ -462,8 +462,10 @@ def scatter(
     with open(ROAdictName, "w") as f:
         f.write(str(Dout))
 
-    mode = mode2decompose -1 # for decomposition
-    local_pairs(A_der, G_der, Q_der, Lx, omega, roa_conv, mode, Fevals[mode], pr)
+    for m in modes2decompose:
+        #local pairs function will except a signed frequency - only for printing
+        wavenum = freqs[m-1] if (Fevals[m-1] > 0) else (-1.0 * freqs[m-1])
+        local_pairs(A_der, G_der, Q_der, Lx, omega, roa_conv, m-1, wavenum, pr)
 
     return
 
@@ -585,7 +587,7 @@ def centerGeometry(geom, masses):
 # A_der is (3*Natom,9)
 # Q_der is (3*Natom,27)
 # evals are vibrational eigenvalues for printing
-def local_pairs(A_der, G_der, Q_der, Lx, omega, roa_conv, mode, Feval, pr):
+def local_pairs(A_der, G_der, Q_der, Lx, omega, roa_conv, mode, wavenum, pr):
     Natom = len(Lx)//3
     L = Lx[:,mode].T
 
@@ -685,10 +687,11 @@ def local_pairs(A_der, G_der, Q_der, Lx, omega, roa_conv, mode, Feval, pr):
     for A in range(Natom):
         alphaG_local_pairwise[A,A] /= 2.0
 
+    wavenumst = ("%10.3f" % wavenum) if wavenum > 0 else (("%9.3f" % -wavenum) + 'i')
+
     pr("-----------------------------------------------------\n")
     pr("              ROA Normal Mode Decomposition          \n")
-    pr("  Mode: %d       Harmonic Freq.: %9.3f               \n" % (
-          mode+1, cm_convert * sqrt(km_convert * Feval)))
+    pr("  Mode: %d       Harmonic Freq.: %10s              \n" % (mode+1, wavenumst))
     pr("-----------------------------------------------------\n")
     pr(" Atom Pair     alpha*G        Beta(G)^2    Beta(A)^2 \n")
     pr("-----------------------------------------------------\n")

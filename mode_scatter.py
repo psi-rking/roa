@@ -323,7 +323,8 @@ def modeScatter(
         ROAdictName='spectra.dat', # name of dictionary output file
         calc_type='Calc Type',  # for output, if desired
         nbf=None,
-        pr=print
+        pr=print,
+        modes2decompose=[1]
       ):
 
     Natom = len(geom)
@@ -609,6 +610,9 @@ def modeScatter(
     with open(ROAdictName, "w") as f:
         f.write(str(Dout))
 
+    for m in modes2decompose:
+        local_pairs(A_der_q, G_der_q, Q_der_q, Lx, omega, roa_conv, m-1, freqs, pr)
+
     return
 
 
@@ -726,63 +730,99 @@ def centerGeometry(geom, masses):
     return centeredGeom
 
 
-# A_der is (3*Natom,9)
-# Q_der is (3*Natom,27)
-# evals are vibrational eigenvalues for printing
-def local_pairs(A_der, G_der, Q_der, Lx, omega, roa_conv, mode, Feval, pr):
-    Natom = len(Lx)//3
-    L = Lx[:,mode].T
+# Lq has dimensions (3N, Nmodes)
+# A_der_q is (Nmodes, 3, 3)
+def local_pairs(A_der_q, G_der_q, Q_der_q, Lq, omega, roa_conv, mode, wavenum, pr):
+    Natom = Lq.shape[0]//3
+    Nmodes = Lq.shape[1]
+    #pr('\nLq.shape:' + str(Lq.shape))
+    #pr('\nNatom: %d' % Natom)
+    #pr('\nNmodes: %d' % Nmodes)
+    #pr('\nA_der_q[mode].shape: %s\n' % str(A_der_q[mode].shape))
 
+    # Find generalized left-inverse so Linv Lq = I (Nmodes,Nmodes)
+    Linv = np.linalg.pinv(Lq)   # Linv has dimensions (Nmodes, 3N)
+    #pr('Linv:' + str(Linv) + '\n')
+
+    # This is a check; gives the correct Beta(A2) total.
+    #total = 0.0
+    #for i in range(3): 
+    #    for j in range(3): 
+    #        for k in range(3):
+    #            for l in range(3):
+    #                total += 0.5 * omega * A_der_q[mode][i,j] * levi(i,k,l) * Q_der_q[mode][k,l,j]
+    #pr('Sum betaA2: %15.10f\n' % (roa_conv * total))
+
+    # Need to determine the derivative wrt xyz of each atoms separately - before
+    # contracting them together, so this is roundabout.
+    A_der_q_xyz = np.zeros( (3*Natom,3,3) )
+    for a in range(3*Natom):
+      for i in range(3):
+        for j in range(3):
+          A_der_q_xyz[a,i,j] = Linv[mode,a] * A_der_q[mode][i,j]
+
+    G_der_q_xyz = np.zeros( (3*Natom,3,3) )
+    for a in range(3*Natom):
+      for i in range(3):
+        for j in range(3):
+          G_der_q_xyz[a,i,j] = Linv[mode,a] * G_der_q[mode][i,j]
+
+    Q_der_q_xyz = np.zeros( (3*Natom, 3,3,3) )
+    for a in range(3*Natom):
+      for k in range(3):
+        for l in range(3):
+          for j in range(3):
+            Q_der_q_xyz[a,k,l,j] = Linv[mode,a] * Q_der_q[mode][k,l,j]
+
+    # Now calculate Cartesian pairwise contributions to each tensor.
+    # beta(A2) = 1/2 omega d(alpha_ij)/da levi_ikl d(Q_klj)/db
     beta_A2_local_xyz_mat = np.zeros( (3*Natom, 3*Natom) )
     for Ax in range(3*Natom):
-        pol_der_A_square = A_der[Ax,:].reshape(3,3)
-
         for Bx in range(3*Natom):
-            quad_der_B_cube = Q_der[Bx,:].reshape(3,3,3)
+            value = 0.0 
+            for i in range(3): 
+                for j in range(3): 
+                    for k in range(3):
+                        for l in range(3):
+                            value += 0.5 * omega * A_der_q_xyz[Ax,i,j] * levi(i,k,l) * Q_der_q_xyz[Bx,k,l,j]
+            beta_A2_local_xyz_mat[Ax][Bx] = value
 
+    # Compute beta(G')^2 = 1/2[3 * d(alpha_ij)/da * d(G'_ij)/db - d(alpha_ii)da  * d(G'_jj)/db
+    beta_G2_local_xyz_mat = np.zeros( (3*Natom, 3*Natom) )
+    for Ax in range(3*Natom):
+        for Bx in range(3*Natom):
             value = 0.0
             for i in range(3):
                 for j in range(3):
-                    for k in range(3):
-                        for l in range(3):
-                            value += 0.5 * omega * pol_der_A_square[i,j] * levi(i,k,l) * quad_der_B_cube[k,l,j]
+                    value += 0.5 * (3.0 * A_der_q_xyz[Ax,i,j] * G_der_q_xyz[Bx,i,j] -
+                                          A_der_q_xyz[Ax,i,i] * G_der_q_xyz[Bx,j,j])
+            beta_G2_local_xyz_mat[Ax][Bx] = value
 
-            beta_A2_local_xyz_mat[Ax][Bx] = value
+    # Compute alpha*G' = d(alpha_i)/da * d(G'_i)/db 
+    alphaG_local_xyz_mat = np.zeros( (3*Natom, 3*Natom) )
+    for Ax in range(3*Natom):
+        for Bx in range(3*Natom):
+            value = 0.0
+            for i in range(3):
+                for j in range(3):
+                    value += A_der_q_xyz[Ax,i,i] * G_der_q_xyz[Bx,j, j] / 9.0
+            alphaG_local_xyz_mat[Ax][Bx] = value
 
-    #total = np.dot(L, np.dot(beta_A2_local_xyz_mat, L.T) )
-    #pr("\tTotal over A-B (xyz)   : %12.7f\n" % (total * roa_conv))
-
+    # Now add up each atomic pairwise contribution to the sum for the normal
+    # mode.  Symmetrize and divide diagonal by 2.0 for fair counting.
     beta_A2_local_pairwise = np.zeros( (Natom,Natom) )
     for A in range(Natom):
         for B in range(Natom):
             val = 0
             for Ax in range(3*A, 3*A+3):
                 for Bx in range(3*B, 3*B+3):
-                    val += L[Ax] * beta_A2_local_xyz_mat[Ax,Bx] * L[Bx]
-    
+                    val += Lq[Ax,mode] * beta_A2_local_xyz_mat[Ax,Bx] * Lq[Bx,mode]
+
             beta_A2_local_pairwise[A,B] += val
 
     beta_A2_local_pairwise[:] = np.add(beta_A2_local_pairwise, beta_A2_local_pairwise.T)
     for A in range(Natom):
         beta_A2_local_pairwise[A,A] /= 2.0
-
-
-    # Compute beta(G')^2 = 1/2[3 * alpha_ij*G'_ij - alpha_ii*G'_jj
-    beta_G2_local_xyz_mat = np.zeros( (3*Natom, 3*Natom) )
-    for Ax in range(3*Natom):
-        pol_der_A_square = A_der[Ax,:].reshape(3,3)
-        for Bx in range(3*Natom):
-            opt_der_B_square = G_der[Bx,:].reshape(3,3)
-
-            value = 0.0
-            for i in range(3):
-                for j in range(3):
-                    value += 0.5 * (3.0 * pol_der_A_square[i, j] * opt_der_B_square[i, j] - 
-                                          pol_der_A_square[i, i] * opt_der_B_square[j, j])
-            beta_G2_local_xyz_mat[Ax][Bx] = value
-
-    #total = np.dot(L, np.dot(beta_G2_local_xyz_mat, L.T) )
-    #pr("\tTotal over A-B (xyz)   : %12.7f\n" % (total * roa_conv))
 
     beta_G2_local_pairwise = np.zeros( (Natom,Natom) )
     for A in range(Natom):
@@ -790,30 +830,13 @@ def local_pairs(A_der, G_der, Q_der, Lx, omega, roa_conv, mode, Feval, pr):
             val = 0
             for Ax in range(3*A, 3*A+3):
                 for Bx in range(3*B, 3*B+3):
-                    val += L[Ax] * beta_G2_local_xyz_mat[Ax,Bx] * L[Bx]
-   
+                    val += Lq[Ax,mode] * beta_G2_local_xyz_mat[Ax,Bx] * Lq[Bx,mode]
+
             beta_G2_local_pairwise[A,B] += val
 
     beta_G2_local_pairwise[:] = np.add(beta_G2_local_pairwise, beta_G2_local_pairwise.T)
     for A in range(Natom):
         beta_G2_local_pairwise[A,A] /= 2.0
-
-    # Compute alpha*G' = alpha_i * G'_i (can multiply by 45 for forward comparison)
-    alphaG_local_xyz_mat = np.zeros( (3*Natom, 3*Natom) )
-    for Ax in range(3*Natom):
-        pol_der_A_square = A_der[Ax,:].reshape(3,3)
-        for Bx in range(3*Natom):
-            opt_der_B_square = G_der[Bx,:].reshape(3,3)
-
-            value = 0.0
-            for i in range(3):
-                for j in range(3):
-                    value += pol_der_A_square[i, i] * opt_der_B_square[j, j] / 9.0
-
-            alphaG_local_xyz_mat[Ax][Bx] = value
-
-    #total = np.dot(L, np.dot(alphaG_local_xyz_mat, L.T) )
-    #pr("\tTotal       : %12.7f\n" % (total * roa_conv))
 
     alphaG_local_pairwise = np.zeros( (Natom,Natom) )
     for A in range(Natom):
@@ -821,18 +844,19 @@ def local_pairs(A_der, G_der, Q_der, Lx, omega, roa_conv, mode, Feval, pr):
             val = 0
             for Ax in range(3*A, 3*A+3):
                 for Bx in range(3*B, 3*B+3):
-                    val += L[Ax] * alphaG_local_xyz_mat[Ax,Bx] * L[Bx]
-
+                    val += Lq[Ax,mode] * alphaG_local_xyz_mat[Ax,Bx] * Lq[Bx,mode]
             alphaG_local_pairwise[A,B] += val
 
     alphaG_local_pairwise[:] = np.add(alphaG_local_pairwise, alphaG_local_pairwise.T)
     for A in range(Natom):
         alphaG_local_pairwise[A,A] /= 2.0
 
+    wn = wavenum[mode]
+    wavenumst = ("%10.3f" % wn) if wn > 0 else (("%9.3f" % -wn) + 'i')
+
     pr("-----------------------------------------------------\n")
     pr("              ROA Normal Mode Decomposition          \n")
-    pr("  Mode: %d       Harmonic Freq.: %9.3f               \n" % (
-          mode+1, cm_convert * sqrt(km_convert * Feval)))
+    pr("  Mode: %d       Harmonic Freq.: %10s              \n" % (mode+1, wavenumst))
     pr("-----------------------------------------------------\n")
     pr(" Atom Pair     alpha*G        Beta(G)^2    Beta(A)^2 \n")
     pr("-----------------------------------------------------\n")
@@ -901,6 +925,7 @@ def local_pairs(A_der, G_der, Q_der, Lx, omega, roa_conv, mode, Feval, pr):
             pr("(%2d,%2d):                              %15.5f\n" % (
                   key[0], key[1], betaA2_dict[key]))
     pr("-----------------------------------------------------\n")
+
 
     return
 
