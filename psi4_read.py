@@ -19,6 +19,9 @@ def psi4_read_hessian(Natom):
     with open("file15.dat", "r") as fHessian:
         for i in range(3*Natom*Natom):
             s = fHessian.readline().split()
+            if i==0 and len(s)==2:
+                raise Exception("First row of file15 has 2 entries. \
+ Delete 1st line of old file format.")
             for xyz in range(3):
                 H[i][xyz] = float(s[xyz])
     H.shape = (3*Natom, 3*Natom)
@@ -35,6 +38,9 @@ def psi4_read_dipole_derivatives(Natom):
         for i in range(3):  # d(mu_x), d(mu_y), d(mu_z)
             for j in range(Natom):
                 s = fMu.readline().split()
+                if i==0 and j==0 and len(s)==2:
+                    raise Exception("First row of file17 has 2 entries. \
+ Delete 1st line of old file format.")
                 for xyz in range(3):
                     dipder[i][3*j+xyz] = float(s[xyz])
     return dipder
