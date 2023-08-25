@@ -68,7 +68,7 @@ def scatter(
         ROAdictName='spectra.dat', # name of dictionary output file
         calc_type='Calc Type',  # for output, if desired
         nbf=None, #for output, if desired
-        mode2decompose=1,
+        modes2decompose=[1],
         pr=print
       ):
 
@@ -78,12 +78,16 @@ def scatter(
         pr("%15.10f%15.10f%15.10f\n" % (geom[a,0],geom[a,1],geom[a,2]))
 
     # COMPUTE TENSOR DERIVATIVES
+    # August 2023: Adding negative sign to finite-differences so these
+    # are technically derivatives, not gradients.  This has no effect on
+    # the products of derivatives that appear in the VROA parameters.
+    #
     # A_grad = Array of length # of Cartesian coordinates with respect
     # to which derivative is taken.  Each member is a 3x3 ndarray for the
     #  various electric-dipole/electric-dipole polarizability components.
     A_grad = []
     for i in range(0, len(A_fd), 2):
-        grad_mat = np.subtract( A_fd[i], A_fd[i+1] )
+        grad_mat = -np.subtract( A_fd[i], A_fd[i+1] )
         grad_mat[:] /=  (2.0 * step)
         A_grad.append(grad_mat)
 
@@ -92,7 +96,7 @@ def scatter(
     #  various electric-dipole/magnetic-dipole polarizability components.
     G_grad = []
     for i in range(0, len(G_fd), 2):
-        grad_mat = np.subtract( G_fd[i], G_fd[i+1] )
+        grad_mat = -np.subtract( G_fd[i], G_fd[i+1] )
         grad_mat[:] /=  (2.0 * step)
         G_grad.append(grad_mat)
 
@@ -101,7 +105,7 @@ def scatter(
     #  various electric quadropole/electric-dipole polarizability components.
     Q_grad = []
     for i in range(0, len(G_fd), 2):
-        grad_mat = np.subtract( Q_fd[i], Q_fd[i+1] )
+        grad_mat = -np.subtract( Q_fd[i], Q_fd[i+1] )
         grad_mat[:] /=  (2.0 * step)
         Q_grad.append(grad_mat)
 
@@ -462,8 +466,10 @@ def scatter(
     with open(ROAdictName, "w") as f:
         f.write(str(Dout))
 
-    mode = mode2decompose -1 # for decomposition
-    local_pairs(A_der, G_der, Q_der, Lx, omega, roa_conv, mode, Fevals[mode], pr)
+    for m in modes2decompose:
+        #local pairs function will except a signed frequency - only for printing
+        wavenum = freqs[m-1] if (Fevals[m-1] > 0) else (-1.0 * freqs[m-1])
+        local_pairs(A_der, G_der, Q_der, Lx, omega, roa_conv, m-1, wavenum, pr)
 
     return
 
@@ -585,7 +591,7 @@ def centerGeometry(geom, masses):
 # A_der is (3*Natom,9)
 # Q_der is (3*Natom,27)
 # evals are vibrational eigenvalues for printing
-def local_pairs(A_der, G_der, Q_der, Lx, omega, roa_conv, mode, Feval, pr):
+def local_pairs(A_der, G_der, Q_der, Lx, omega, roa_conv, mode, wavenum, pr):
     Natom = len(Lx)//3
     L = Lx[:,mode].T
 
@@ -685,10 +691,11 @@ def local_pairs(A_der, G_der, Q_der, Lx, omega, roa_conv, mode, Feval, pr):
     for A in range(Natom):
         alphaG_local_pairwise[A,A] /= 2.0
 
+    wavenumst = ("%10.3f" % wavenum) if wavenum > 0 else (("%9.3f" % -wavenum) + 'i')
+
     pr("-----------------------------------------------------\n")
     pr("              ROA Normal Mode Decomposition          \n")
-    pr("  Mode: %d       Harmonic Freq.: %9.3f               \n" % (
-          mode+1, cm_convert * sqrt(km_convert * Feval)))
+    pr("  Mode: %d       Harmonic Freq.: %10s              \n" % (mode+1, wavenumst))
     pr("-----------------------------------------------------\n")
     pr(" Atom Pair     alpha*G        Beta(G)^2    Beta(A)^2 \n")
     pr("-----------------------------------------------------\n")
