@@ -14,9 +14,9 @@
 import numpy as np
 import os
 
-def psi4_read_hessian(Natom):
+def psi4_read_hessian(Natom, infile15='file15.dat'):
     H = np.zeros( (3*Natom*Natom, 3) )
-    with open("file15.dat", "r") as fHessian:
+    with open(infile15, "r") as fHessian:
         for i in range(3*Natom*Natom):
             s = fHessian.readline().split()
             if i==0 and len(s)==2:
@@ -32,9 +32,9 @@ def check_symmetric(a, rtol=1e-05, atol=1e-08):
     return np.allclose(a, a.T, rtol=rtol, atol=atol)
 
 # Read in the Dipole-Moment Derivatives from file 17.
-def psi4_read_dipole_derivatives(Natom):
+def psi4_read_dipole_derivatives(Natom, fname='file17.dat'):
     dipder = np.zeros( (3, 3*Natom) )
-    with open("file17.dat", "r") as fMu:
+    with open(fname, "r") as fMu:
         for i in range(3):  # d(mu_x), d(mu_y), d(mu_z)
             for j in range(Natom):
                 s = fMu.readline().split()

@@ -334,12 +334,16 @@ def modeScatter(
         pr("%15.10f%15.10f%15.10f\n" % (geom[a,0],geom[a,1],geom[a,2]))
 
     # COMPUTE TENSOR DERIVATIVES
+    # August 2023: Adding negative sign to finite-differences so these
+    # are technically derivatives, not gradients.  This has no effect on
+    # the products of derivatives that appear in the VROA parameters.
+    #
     # A_grad = Array of length # of Cartesian coordinates with respect
     # to which derivative is taken.  Each member is a 3x3 ndarray for the
     #  various electric-dipole/electric-dipole polarizability components.
     A_grad = []
     for i in range(0, len(A_fd), 2):
-        grad_mat = np.subtract( A_fd[i], A_fd[i+1] )
+        grad_mat = -np.subtract( A_fd[i], A_fd[i+1] )
         grad_mat[:] /=  (2.0 * step)
         A_grad.append(grad_mat)
 
@@ -348,7 +352,7 @@ def modeScatter(
     #  various electric-dipole/magnetic-dipole polarizability components.
     G_grad = []
     for i in range(0, len(G_fd), 2):
-        grad_mat = np.subtract( G_fd[i], G_fd[i+1] )
+        grad_mat = -np.subtract( G_fd[i], G_fd[i+1] )
         grad_mat[:] /=  (2.0 * step)
         G_grad.append(grad_mat)
 
@@ -357,7 +361,7 @@ def modeScatter(
     #  various electric quadropole/electric-dipole polarizability components.
     Q_grad = []
     for i in range(0, len(G_fd), 2):
-        grad_mat = np.subtract( Q_fd[i], Q_fd[i+1] )
+        grad_mat = -np.subtract( Q_fd[i], Q_fd[i+1] )
         grad_mat[:] /=  (2.0 * step)
         Q_grad.append(grad_mat)
 
