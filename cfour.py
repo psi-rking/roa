@@ -62,7 +62,7 @@ class CFOUR(object):
     if executable == None:
         self.executable = '/Users/rking/bin/run-cfour'
     else:
-        self.executable = 'cfour'
+        self.executable = executable
 
 
   def run(self, calctype=None, scratchName=None, read_E=False, read_Gx=False):

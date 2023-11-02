@@ -57,7 +57,8 @@ def compareBroadenedSpectra(fileRef, filesToTest, spectraToTest, Xmin=100,
         areaDiff[spectrumType + ' Relative'] = {}
         areaAbsRef = computeAbsArea(peaks1, Xmin, Xmax, Npts, width, peakType)
         areaDiff[spectrumType]['Abs Area of Ref'] = areaAbsRef
-        print(f'Absolute Area of reference spectrum {areaAbsRef:10.5f}')
+        #print(f'Absolute Area of reference spectrum {areaAbsRef:10.5f}')
+        print(f'Absolute Area of reference spectrum {areaAbsRef:10.5e}')
 
         for f in filesToTest:
             peaks2 = list(zip(spTest[f].data[variableX], spTest[f].data[spectrumType]))
