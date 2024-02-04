@@ -27,24 +27,27 @@ class CFOUR(object):
     if 'SCF_CONV' not in keys: 
         self.keywords['SCF_CONV']=11
     if 'SCF_DAMP' not in keys: 
-        self.keywords['SCF_DAMP']=100
+        self.keywords['SCF_DAMP']=300
     if 'SCF_EXPSTART' not in keys: 
-        self.keywords['SCF_EXPSTART']=100
+        self.keywords['SCF_EXPSTART']=50
     if 'SCF_MAXCYC' not in keys: 
         self.keywords['SCF_MAXCYC']=300
     if 'UNITS' not in keys:  # changing CFOUR default!
         self.keywords['UNITS']='BOHR'
+    if 'SPHERICAL' in keys: 
+        if self.keywords['SPHERICAL'] not in ['ON','OFF']:
+            raise Exception('SPHERICAL value unclear')
 
     # The following basis sets are non-native to CFOUR.
     bs_special_to_C4 = [
-    '6-31+G*', '6-31++G*', 'asp-cc-pvdz', 'd-aug-cc-pvdz', 'd-aug-cc-pvtz',
+    '6-31+g*', '6-31++g*', 'asp-cc-pvdz', 'd-aug-cc-pvdz', 'd-aug-cc-pvtz',
     'orp', 'sadlej-lpol-ds', 'sadlej-lpol-dl', 'sadlej-lpol-fs', 'sadlej-lpol-fl',
-    '6-311++G(3df,3pd)' ]
+    '6-311++g(3df,3pd)', 'augd-3-21g', 'augt3-3-21g', 'r-orp', 'sadlej-pvtz' ]
 
     # weird names with special formatting simplified in custom GENBAS
     bs_c4_weird = { '6-311++G(3df,3pd)' : 'POPLE-BIG' }
 
-    if self.keywords['BASIS'] in bs_special_to_C4:
+    if self.keywords['BASIS'].lower() in bs_special_to_C4:
         BS = self.keywords['BASIS']
         if BS in bs_c4_weird:
             self.keywords['SPECIAL_BASIS'] = bs_c4_weird[BS]
@@ -60,7 +63,7 @@ class CFOUR(object):
     self.keywords['COORD'] = 'CARTESIAN'
     self.title = title
     if executable == None:
-        self.executable = '/Users/rking/bin/run-cfour'
+        self.executable = '/home/rking/bin/run-cfour'
     else:
         self.executable = executable
 
@@ -79,10 +82,9 @@ class CFOUR(object):
     self.makeZMAT()
     # print("Launching CFOUR executable...")
     # returns CompletedProcess()
+    print(f"Running {self.executable} {scratchName}")
     rc = subprocess.run([self.executable, scratchName], capture_output=True)
     if rc.returncode != 0:
-        print(rc.stdout)
-        print(rc.stderr)
         raise Exception('Bad return code from CFOUR')
     if calctype.upper() == 'ENERGY':
         return self.parseFinalEnergyFromOutput()

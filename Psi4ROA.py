@@ -104,6 +104,9 @@ class ROA(object):
                 masses = np.array( [self.mol.mass(i) for i in range(Natom)] )
             if hessian is None:
                 hessian = roa.psi4_read_hessian(Natom)
+
+            self.pr('(ROA) Displacing from this geometry:\n')
+            self.pr(str(geom))
     
             # Do normal mode analysis and return the normal mode vectors (non-MW?) for
             # indices numbering from 0 (highest nu) downward. Modes returned as rows
@@ -545,7 +548,7 @@ class ROA(object):
 
             diff = np.max([np.abs(c4dipxOrig - c4dipx), np.abs(c4dipyOrig - c4dipy),
                            np.abs(c4dipzOrig - c4dipz)])
-            print(f'Max change from alignment of dipole derivatives {diff:10.5e}')
+            #print(f'Max change from alignment of dipole derivatives {diff:10.5e}')
 
         else:
             raise Exception('Other muder prog not yet implemented')
@@ -587,10 +590,11 @@ class ROA(object):
             c4.run('hessian')
             H = c4.read_hessian()
             c4.writeFile15(H, outfile15)
+            return c4.parseFinalEnergyFromOutput()
         else:
             raise Exception('Other hessian prog not yet implemented')
 
-    def optimize(self, wfn, prog='psi4', c4kw={}, optking_options={}):
+    def optimize(self, wfn, prog='psi4', c4kw={}, optking_options={}, scratch=None):
         self.pr(f'(ROA) Optimizing geometry with {prog}.\n')
         if prog == 'psi4':
             json_output = optking.optimize_psi4(wfn, "psi4", None, **optking_options)
@@ -601,8 +605,11 @@ class ROA(object):
             for step in range(30):
                 xyz = opt.molsys.geom
 
-                c4 = CFOUR(xyz, symbols, wfn, c4kw, "gradCalc")
-                (E, grad) = c4.run('gradient')
+                c4 = CFOUR(xyz, symbols, wfn, c4kw, "gradCalc", executable="run-cfour-21-roa")
+                if scratch is None:
+                    (E, grad) = c4.run('gradient')
+                else:
+                    (E, grad) = c4.run('gradient', scratchName=scratch)
 
                 opt.E = E
                 core.print_out("Energy: {:20.15f}\n".format(opt.E))
