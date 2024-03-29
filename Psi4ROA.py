@@ -587,8 +587,10 @@ class ROA(object):
             atom_symbols = [self.mol.symbol(at) for at in range(self.mol.natom())]
 
             c4 = CFOUR(geom, atom_symbols, wfn, c4kw, title=subdir, executable=c4executable)
-            c4.run('hessian')
-            H = c4.read_hessian()
+            #c4.run('hessian')
+            #H = c4.read_hessian()
+            (gx, H) = c4.run('hessian', read_Gx=True)
+            #H = c4.read_hessian()
             c4.writeFile15(H, outfile15)
             return c4.parseFinalEnergyFromOutput()
         else:

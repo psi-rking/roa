@@ -97,7 +97,7 @@ class CFOUR(object):
         grad2 = np.dot(mill.rotation, grad.T).T
         diff = np.max(np.abs(grad - grad2))
         grad[:] = grad2
-        #print(f'Max change from alignment of gradient {diff:10.5e}')
+        print(f'Max change from alignment of gradient {diff:10.5e}')
         #x = np.dot(mill.rotation, coord.T).T # reproduces self.xyz
         return E, grad
     elif calctype.upper() == 'HESSIAN':
@@ -110,7 +110,7 @@ class CFOUR(object):
         c4h2 = mill.align_hessian(c4h)
         diff = np.max(np.abs(c4h - c4h2))
         c4h[:] = c4h2
-        #print(f'Max change from alignment of Hessian {diff:10.5e}')
+        print(f'Max change from alignment of Hessian {diff:10.5e}')
 
         if read_E:
             E = self.parseFinalEnergyFromOutput()
@@ -119,7 +119,10 @@ class CFOUR(object):
             rmsd, mill = molutil.B787(self.xyz, coord, None, None,
               mols_align=1e-12, atoms_map=True, verbose=False)
             RotMat = mill.rotation
-            grad[:] = np.dot(mill.rotation, grad.T).T
+            grad2 = np.dot(mill.rotation, grad.T).T
+            diff = np.max(np.abs(grad - grad2))
+            grad[:] = grad2
+            print(f'Max change from alignment of gradient {diff:10.5e}')
         if read_E and read_Gx:
             return (E, grad, c4h)
         elif read_E:
@@ -168,7 +171,7 @@ class CFOUR(object):
     f.close()
     return
 
-  def read_hessian(self, infile='FCMFINAL.out'):
+  def read_hessian(self, infile='FCMFINAL'):
       Natom = len(self.symbols)
       H = np.zeros( (3*Natom*Natom,3) )
       with open(infile,'r') as f:
@@ -207,8 +210,8 @@ class CFOUR(object):
             mu_z[at][2] = v[3]
       return (mu_x, mu_y, mu_z)
 
-  def parseGeometryFromOutput(self):
-      with open('output.dat','r') as f:
+  def parseGeometryFromOutput(self, outfile='output.dat'):
+      with open(outfile,'r') as f:
           outtext = f.read()
           mobj = re.search(
               r'^\s+' + r'Symbol    Number           X              Y              Z' + r'\s*' +
