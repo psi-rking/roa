@@ -94,23 +94,51 @@ class CFOUR(object):
         rmsd, mill = molutil.B787(self.xyz, coord, None, None,
           mols_align=1e-12, atoms_map=True, verbose=False)
         RotMat = mill.rotation
+        Shift = mill.shift
+        coordShifted = coord + Shift
+        x2 = np.dot(mill.rotation, coordShifted.T).T
+        diff = np.max(np.abs(x2 - self.xyz))
+        if diff > 1e-8:
+            print(f'Max error realigning xyz in GRD to cfour input {diff:10.5e}')
+        # rotate gradient to xyz orientation of roa self.xyz
         grad2 = np.dot(mill.rotation, grad.T).T
         diff = np.max(np.abs(grad - grad2))
         grad[:] = grad2
-        print(f'Max change from alignment of gradient {diff:10.5e}')
-        #x = np.dot(mill.rotation, coord.T).T # reproduces self.xyz
+        if diff > 1e-8:
+            print(f'Max change realigning gradient in GRD to cfour input {diff:10.5e}')
         return E, grad
     elif calctype.upper() == 'HESSIAN':
         c4h = self.read_hessian()  # read the hessian from FCMFINAL
-        #print('original H')
-        #print(c4h)
         coord = self.parseGeometryFromOutput()
         rmsd, mill = molutil.B787(coord, self.xyz, None, None,
           mols_align=1e-12, atoms_map=True, verbose=False)
         c4h2 = mill.align_hessian(c4h)
         diff = np.max(np.abs(c4h - c4h2))
         c4h[:] = c4h2
-        print(f'Max change from alignment of Hessian {diff:10.5e}')
+        if diff > 1e-8:
+            print(f'Max change from alignment of Hessian {diff:10.5e}')
+
+        ## rotate DIPDER and output file17
+        #(c4dipx, c4dipy, c4dipz) = self.parseDIPDER()
+        #c4dipxOrig = c4dipx.copy()
+        #c4dipyOrig = c4dipy.copy()
+        #c4dipzOrig = c4dipz.copy()
+        ## For each atom for field direction by nuclear direction 3x3 and
+        ## transform it.
+        #for at in range(Natom):
+        #    DIPDERatom = np.zeros( (3,3) )
+        #    DIPDERatom[0,:] = c4dipx[at,:]
+        #    DIPDERatom[1,:] = c4dipy[at,:]
+        #    DIPDERatom[2,:] = c4dipz[at,:]
+        #    DIPDERatom[:] = np.dot( RotMat.T , np.dot(DIPDERatom, RotMat) )
+        #    c4dipx[at][:] = DIPDERatom[0,:]
+        #    c4dipy[at][:] = DIPDERatom[1,:]
+        #    c4dipz[at][:] = DIPDERatom[2,:]
+        #c4.writeFile17(c4dipx, c4dipy, c4dipz, outfile='file17.dat')
+        #
+        #diff = np.max([np.abs(c4dipxOrig - c4dipx), np.abs(c4dipyOrig - c4dipy),
+        #                  np.abs(c4dipzOrig - c4dipz)])
+        #print(f'Max change from alignment of dipole derivatives {diff:10.5e}')
 
         if read_E:
             E = self.parseFinalEnergyFromOutput()
@@ -119,6 +147,12 @@ class CFOUR(object):
             rmsd, mill = molutil.B787(self.xyz, coord, None, None,
               mols_align=1e-12, atoms_map=True, verbose=False)
             RotMat = mill.rotation
+            Shift = mill.shift
+            coordShifted = coord + Shift
+            x2 = np.dot(mill.rotation, coordShifted.T).T
+            diff = np.max(np.abs(x2 - self.xyz))
+            print(f'Max error realigning xyz in GRD to cfour input xyz {diff:10.5e}')
+            # rotate gradient to xyz orientation of roa self.xyz
             grad2 = np.dot(mill.rotation, grad.T).T
             diff = np.max(np.abs(grad - grad2))
             grad[:] = grad2

@@ -107,6 +107,9 @@ class ROA(object):
 
             self.pr('(ROA) Displacing from this geometry:\n')
             self.pr(str(geom))
+            # Bugfix on 4-1-2024; The roa analysis geometry was not overriding
+            # the geometry in the psi4 mol (if it were different).
+            self.mol.set_geometry(core.Matrix.from_array(geom))
     
             # Do normal mode analysis and return the normal mode vectors (non-MW?) for
             # indices numbering from 0 (highest nu) downward. Modes returned as rows
@@ -555,7 +558,7 @@ class ROA(object):
         return
 
     def compute_hessian(self, wfn, prog='psi4', c4kw={}, geom=None, disp_points=3, disp_size=0.005,
-                        c4executable=None, subdir='hess-calc', outfile15='file15.dat'):
+                        c4executable=None, subdir='hess-calc', outfile15='file15.dat', c4scr=None):
         Natom = self.mol.natom()
         if geom == None:
            geom = self.analysis_geom_2D
@@ -566,8 +569,6 @@ class ROA(object):
             self.pr("(ROA) Computing hessian with Psi4 (%d,%.4f)...\n" % (disp_points,disp_size))
 
             #Prepare geometry
-            if geom is None:
-                geom = self.analysis_geom_2D
             self.mol.set_geometry(core.Matrix.from_array(geom))
             self.mol.fix_com(True)
             self.mol.fix_orientation(True)
@@ -587,25 +588,29 @@ class ROA(object):
             atom_symbols = [self.mol.symbol(at) for at in range(self.mol.natom())]
 
             c4 = CFOUR(geom, atom_symbols, wfn, c4kw, title=subdir, executable=c4executable)
-            #c4.run('hessian')
-            #H = c4.read_hessian()
-            (gx, H) = c4.run('hessian', read_Gx=True)
-            #H = c4.read_hessian()
+            if c4scr is None:
+                (gx, H) = c4.run('hessian', read_Gx=True) # function reorients to geom
+            else:
+                (gx, H) = c4.run('hessian', scratchName=c4scr, read_Gx=True)
+            self.pr("Writing out file15 after reorientation.")
             c4.writeFile15(H, outfile15)
             return c4.parseFinalEnergyFromOutput()
         else:
             raise Exception('Other hessian prog not yet implemented')
 
-    def optimize(self, wfn, prog='psi4', c4kw={}, optking_options={}, scratch=None):
+    def optimize(self, wfn, prog='psi4', c4kw={}, optking_kw={}, scratch=None):
         self.pr(f'(ROA) Optimizing geometry with {prog}.\n')
         if prog == 'psi4':
-            json_output = optking.optimize_psi4(wfn, "psi4", None, **optking_options)
+            json_output = optking.optimize_psi4(wfn, "psi4", None, **optking_kw)
         elif prog == 'cfour':
-            opt = optking.CustomHelper(wfn, optking_options)
+            opt = optking.CustomHelper(wfn, optking_kw)
             symbols = opt.molsys.atom_symbols
+            maxiter = optking_kw.get('GEOM_MAXITER',30)
 
-            for step in range(30):
+            for step in range(maxiter):
                 xyz = opt.molsys.geom
+                core.print_out("Geometry in opt.molsys.geom at start of step in optimize()\n")
+                core.print_out(str(xyz))
 
                 c4 = CFOUR(xyz, symbols, wfn, c4kw, "gradCalc", executable="run-cfour-21-roa")
                 if scratch is None:
