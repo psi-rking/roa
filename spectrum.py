@@ -16,9 +16,9 @@ defaultKeys = [ 'Frequency', 'ROA alpha*G', 'ROA Beta(G)^2', 'ROA Beta(A)^2',
 
 class SPECTRUM(object):
 
-    def __init__(self, fileName=None):
-        self.filename = fileName
-        self.data = {}
+    def __init__(self, title=None, data={}):
+        self._title = title
+        self.data = data
 
     def __str__(self):
         s  = '\n ROA Diff. Parameter R-L (Ang^4/amu * 1000)'
@@ -70,21 +70,32 @@ class SPECTRUM(object):
         print(s)
         return
 
+    def title(self, setval):
+        self._title = setval
 
-    def readDictionaryOutputFile(self,filename):
-        self.filename = filename
+    @property
+    def title(self):
+        return self._title
+
+    def invert(self, invertKeys=None):
+        if not invertKeys:
+             invertKeys = ['ROA alpha*G', 'ROA Beta(G)^2', 'ROA Beta(A)^2']
+             #'ROA R-L Delta(90)_z', 'ROA R-L Delta(90)_x', 'ROA R-L Delta(0)', 'ROA R-L Delta(180)']
+        for k in invertKeys:
+            self.data[k].dot(-1.0)
+        return
+
+    @classmethod
+    def fromDictionaryOutputFile(cls, filename):
         with open(filename,'r') as f:
-            self.data = eval( f.read() )
+            data_in = eval( f.read() )
         if filename[-4:] == '.dat':
             filename = filename[:-4]
         filename = filename.replace("spectra","sp")
-        self.filename = filename
+        return cls(title=filename, data=data_in)
 
-    def writeDictionaryOutputFile(self, outfile):
-        with open(outfile,'w') as f:
-            f.write(str(self.data))
-
-    def readPsi4OutputFile(self,filename):
+    @classmethod
+    def fromPsi4OutputFile(cls, filename):
         freq = []
         alphaG = []
         betaG2 = []
@@ -99,6 +110,7 @@ class SPECTRUM(object):
         wfn = ''
         basis = ''
         nbf = 0
+        data_in = {}
 
         with open(filename,'r') as f:
             startInvariants = 0
@@ -208,25 +220,40 @@ class SPECTRUM(object):
                        delta_0.append(    float(words[4]))
                        delta_180.append(  float(words[5]))
 
-            self.data['Frequency']          = np.array( freq )
-            self.data['ROA alpha*G']        = np.array( alphaG )
-            self.data['ROA Beta(G)^2']      = np.array( betaG2 )
-            self.data['ROA Beta(A)^2']      = np.array( betaA2 )
-            self.data['ROA R-L Delta(90)_z']= np.array( delta_z_90 )
-            self.data['ROA R-L Delta(90)_x']= np.array( delta_x_90 )
-            self.data['ROA R-L Delta(0)']   = np.array( delta_0 )
-            self.data['ROA R-L Delta(180)'] = np.array( delta_180 )
-            self.data['IR Intensity']       = np.array( IRIntensity )
-            self.data['Raman Intensity (linear)']  = np.array( RamanLinear )
-            self.data['Raman Intensity (circular)'] = np.array( RamanCircular )
-            self.data['Calculation Type']   = wfn + '/' + basis
-            self.data['Number of basis functions'] = nbf
+            data_in['Frequency']          = np.array( freq )
+            data_in['ROA alpha*G']        = np.array( alphaG )
+            data_in['ROA Beta(G)^2']      = np.array( betaG2 )
+            data_in['ROA Beta(A)^2']      = np.array( betaA2 )
+            data_in['ROA R-L Delta(90)_z']= np.array( delta_z_90 )
+            data_in['ROA R-L Delta(90)_x']= np.array( delta_x_90 )
+            data_in['ROA R-L Delta(0)']   = np.array( delta_0 )
+            data_in['ROA R-L Delta(180)'] = np.array( delta_180 )
+            data_in['IR Intensity']       = np.array( IRIntensity )
+            data_in['Raman Intensity (linear)']  = np.array( RamanLinear )
+            data_in['Raman Intensity (circular)'] = np.array( RamanCircular )
+            data_in['Calculation Type']   = wfn + '/' + basis
+            data_in['Number of basis functions'] = nbf
         if filename[-4:] in ['.out', '.dat']:
-            self.filename = filename[:-4]
+            filename = filename[:-4]
         else:
-            self.filename = filename
+            filename = filename
+        return cls(title=filename, data=data_in)
 
-    def compareToWithAveDev(s, o, keys=None):  #self,other
+
+    @classmethod
+    def fromOutputFile(cls, filename):
+        if filename[-6:0] == 'sp.out':
+            return fromDictionaryOutputFile(filename)
+        else:
+            return fromPsi4OutputFile(filename)
+
+
+    def writeDictionaryOutputFile(self, outfile):
+        with open(outfile,'w') as f:
+            f.write(str(self.data))
+
+
+    def comparePeaksByAveDev(s, o, keys=None):  #self,other
         if len(s.data['Frequency']) != len(o.data['Frequency']):
             raise Exception('Spectra cannot be compared')
 
@@ -239,7 +266,7 @@ class SPECTRUM(object):
 
         return diff
 
-    def compareToWithRMSDev(s, o, keys=None):  #self,other
+    def comparePeaksByRMSDev(s, o, keys=None):  #self,other
         if len(s.data['Frequency']) != len(o.data['Frequency']):
             raise('spectra cannot be compared')
 
@@ -253,7 +280,7 @@ class SPECTRUM(object):
         return diff
         
     # omit values if reference is < 3.5% of maximum value
-    def compareToWithRelDev(s, o, keys=None, omitBelow=0.035):  #self,other
+    def comparePeaksByRelDev(s, o, keys=None, omitBelow=0.035):  #self,other
         if len(s.data['Frequency']) != len(o.data['Frequency']):
             raise('spectra cannot be compared')
 
@@ -265,7 +292,7 @@ class SPECTRUM(object):
             diff[i] = aveRelDev(s.data[k], o.data[k], omitBelow)
         return diff
 
-    def compareToWithAveRelAbsDev(s, o, keys=None, omitBelow=0.035):  #self,other
+    def comparePeaksByAveRelAbsDev(s, o, keys=None, omitBelow=0.035):  #self,other
         if len(s.data['Frequency']) != len(o.data['Frequency']):
             raise('spectra cannot be compared')
 

@@ -62,7 +62,7 @@ class ROA(object):
         else:
             raise Exception("Can't set geometry")
 
-    def make_coordinate_vectors(self, vib_modes='CART', geom=None, hessian=None, masses=None):
+    def make_coordinate_vectors(self, vib_modes='CART', geom=None, hessian=None, masses=None, printMolden=False):
         """ vib_modes: (list of ints) indicating number of vibrational mode
             along which to displace.  1 means highest frequency mode."""
         self.pr('(ROA) Making displacement vectors.\n')
@@ -114,7 +114,7 @@ class ROA(object):
             # Do normal mode analysis and return the normal mode vectors (non-MW?) for
             # indices numbering from 0 (highest nu) downward. Modes returned as rows
             #(v, nu) = roa.modeVectors(geom, masses, hessian, modes, 1, self.pr)
-            (v, nu) = roa.modeVectorsQCDB(self.mol, hessian, modes, 1, self.pr)
+            (v, nu) = roa.modeVectorsQCDB(self.mol, hessian, modes, 1, self.pr, printMolden)
 
             # restore if harmonic analysis bumped geometry with an update()
             self.mol.set_geometry(core.Matrix.from_array(geom))

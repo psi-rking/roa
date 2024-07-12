@@ -40,7 +40,8 @@ cm_convert         = 1.0 / (2.0 * pi * pc_c * 100.0)
 from psi4.core import print_out, BasisSet
 from psi4.driver import qcdb
 
-def modeVectorsQCDB(mol, hessian, modesToReturn=None, print_lvl=1, pr=print):
+def modeVectorsQCDB(mol, hessian, modesToReturn=None, print_lvl=1, pr=print,
+                    printMolden=False):
     Natom = mol.natom()
     geom = mol.geometry().to_array()
     masses = np.asarray([mol.mass(at) for at in range(Natom)])
@@ -57,6 +58,11 @@ def modeVectorsQCDB(mol, hessian, modesToReturn=None, print_lvl=1, pr=print):
 
     vibinfo, vibtext = qcdb.vib.harmonic_analysis(hessian, geom, masses, basis,
                         irrep_lbls, dipder, project_trans=True, project_rot=True)
+
+    if printMolden:
+      s = qcdb.vib.print_molden_vibs(vibinfo, atom_symbols, geom, standalone=True)
+      with open('molden.vibs','w') as handle:
+          handle.write(s)
 
     # pr(vibtext)
     freqs = vibinfo['omega'].data.real
