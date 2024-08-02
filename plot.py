@@ -46,19 +46,19 @@ def DeltaPeak(x, xzero, R, Delta=None):
     return y
 
 # x = pts at which evaluation should be done
-def discretizedSpectrum(x, peaks, width=10, peakType='Lorentzian'):
+def discretizedSpectrum(x, peaks, width=10, peakType='Lorentzian', RisPeakHeight=False):
     Xmin = min(x)
     Xmax = max(x)
     y = np.zeros(len(x))
     for p in peaks:
         if p[0] > Xmin and p[0] < Xmax:
-            y += eval(peakType)(x, p[0], p[1], width)
+            y += eval(peakType)(x, p[0], p[1], width, RisPeakHeight)
     return y
 
 
 def plotSpectra(spectra, spectrumType=None, labels=None, Npts=1000,
     Xmin=400, Xmax=4000, plotStyleList=None, title="Spectrum", width=10,
-    peakType='Lorentzian', fill_between=False):
+    peakType='Lorentzian', fill_between=False, RisPeakHeight=False, returnPlot=False):
 
     if fill_between and (len(spectra) != 2):
         raise('fill_between options requires exactly 2 spectra')
@@ -92,8 +92,8 @@ def plotSpectra(spectra, spectrumType=None, labels=None, Npts=1000,
             if f > Xmin and f < Xmax:
                 peaks2.append( (f, spectra[1].data[spectrumType][mode]) )
         x = np.linspace(Xmin, Xmax, Npts)
-        y = discretizedSpectrum(x, peaks1, width, peakType)
-        y2 = discretizedSpectrum(x, peaks2, width, peakType)
+        y = discretizedSpectrum(x, peaks1, width, peakType, RisPeakHeight)
+        y2 = discretizedSpectrum(x, peaks2, width, peakType, RisPeakHeight)
 
         if plotStyleList is None:
             ax.plot(x, y,'+-')
@@ -111,7 +111,7 @@ def plotSpectra(spectra, spectrumType=None, labels=None, Npts=1000,
                    peaks.append( (f, s.data[spectrumType][mode]) )
 
             x = np.linspace(Xmin, Xmax, Npts)
-            y = discretizedSpectrum(x, peaks, width, peakType)
+            y = discretizedSpectrum(x, peaks, width, peakType, RisPeakHeight)
 
             if plotStyleList is None:
                 ax.plot(x, y,'+-')
@@ -122,7 +122,10 @@ def plotSpectra(spectra, spectrumType=None, labels=None, Npts=1000,
         ax.legend(labels, loc='best')
 
     plt.xlim(Xmin,Xmax)
-    plt.show()
+    if returnPlot:
+        return plt
+    else:
+        plt.show()
     return
 
 
@@ -130,7 +133,8 @@ def plotSpectra(spectra, spectrumType=None, labels=None, Npts=1000,
 # width: linewidth parameter (perhaps in cm^-1)
 # peakType: may be Lorentzian or Gaussian or DeltaPeak; may be list
 def plotPeaks(peakList, labels=None, Npts=1000, Xmin=None, Xmax=None,
-plotStyleList=None, title="Spectrum", width=10, peakType='Lorentzian'):
+plotStyleList=None, title="Spectrum", width=10, peakType='Lorentzian',
+RisPeakHeight=False, returnPlot=False):
 
     if type(peakType) is list:
         peakTypes = peakType
@@ -172,7 +176,7 @@ plotStyleList=None, title="Spectrum", width=10, peakType='Lorentzian'):
         y = np.zeros(len(x))
         for peak in l:
             if peak[0] > Xmin and peak[0] < Xmax:
-                y += eval(peakTypes[i])(x, peak[0], peak[1], width)
+                y += eval(peakTypes[i])(x, peak[0], peak[1], width, RisPeakHeight)
 
         if plotStyleList is None:
             ax.plot(x, y,'+-')
@@ -207,12 +211,16 @@ plotStyleList=None, title="Spectrum", width=10, peakType='Lorentzian'):
     # Line Style
     # ‘-‘ Solid line   ‘—‘ Dashed line ‘-.’    Dash-dot line
     # ‘:’ Dotted line  ‘H’ Hexagon marker
-    plt.show()
+    if returnPlot:
+        return plt
+    else:
+        plt.show()
     return
 
 
-def plotROAspectrum(peaksRaman, labelRaman, peakList, labels=None, Npts=1000, Xmin=None, Xmax=None,
-    title='', width=15, peakType='Lorentzian', plotStyleList=None):
+def plotROAspectrum(peaksRaman, labelRaman, peakList, labels=None, Npts=1000,
+    Xmin=None, Xmax=None, title='', width=15, peakType='Lorentzian', plotStyleList=None,
+    RisPeakHeight=False, returnPlot=False):
 
     if Xmin is None:
         Xmin = 1e6
@@ -236,7 +244,7 @@ def plotROAspectrum(peaksRaman, labelRaman, peakList, labels=None, Npts=1000, Xm
     y = np.zeros(len(x))
     for p in peaksRaman:
         if p[0] > Xmin and p[0] < Xmax:
-            y += eval(peakType)(x, p[0], p[1], width)
+            y += eval(peakType)(x, p[0], p[1], width, RisPeakHeight)
 
     if plotStyleList is None:
         ax.plot(x, y,'b.-')
@@ -254,7 +262,7 @@ def plotROAspectrum(peaksRaman, labelRaman, peakList, labels=None, Npts=1000, Xm
         y = np.zeros(len(x))
         for p in l:
             if p[0] > Xmin and p[0] < Xmax:
-                y += eval(peakType)(x, p[0], p[1], width)
+                y += eval(peakType)(x, p[0], p[1], width, RisPeakHeight)
 
         if plotStyleList is None:
             ax2.plot(x, y,'.-')
@@ -266,8 +274,11 @@ def plotROAspectrum(peaksRaman, labelRaman, peakList, labels=None, Npts=1000, Xm
     if labels is not None:
         ax2.legend(labels, loc='best')
 
-    plt.show()
-    plt.clf()
+    if returnPlot:
+        return plt
+    else:
+        plt.show()
+
     return
 
 # ----------
@@ -277,43 +288,43 @@ def scaleMaxMagnitudeToOne(y):
     z = y / max(y)
     return z
 
-def computeArea(peaks, Xmin, Xmax, Npts, width, peakType):
+def computeArea(peaks, Xmin, Xmax, Npts, width, peakType, RisPeakHeight=False):
     """ Function to compute area. """
     x = np.linspace(Xmin, Xmax, Npts)
-    y = roa.discretizedSpectrum(x, peaks, width, peakType)
+    y = roa.discretizedSpectrum(x, peaks, width, peakType, RisPeakHeight)
     return np.trapz(y,x)
 
-def computeAbsArea(peaks, Xmin, Xmax, Npts, width, peakType):
+def computeAbsArea(peaks, Xmin, Xmax, Npts, width, peakType, RisPeakHeight=False):
     """ Function to compute area of absolute difference between two spectra. """
     x = np.linspace(Xmin, Xmax, Npts)
-    y = discretizedSpectrum(x, peaks, width, peakType)
+    y = discretizedSpectrum(x, peaks, width, peakType, RisPeakHeight)
     return np.trapz(abs(y),x)
 
-def computeSquaredArea(peaks, Xmin, Xmax, Npts, width, peakType):
+def computeSquaredArea(peaks, Xmin, Xmax, Npts, width, peakType, RisPeakHeight=False):
     """ Function to compute area of square of function """
     x = np.linspace(Xmin, Xmax, Npts)
-    y = discretizedSpectrum(x, peaks, width, peakType)
+    y = discretizedSpectrum(x, peaks, width, peakType, RisPeakHeight)
     return np.trapz(y**2,x)
 
-def computeDiffArea(peaks1, peaks2, Xmin, Xmax, Npts, width, peakType):
+def computeDiffArea(peaks1, peaks2, Xmin, Xmax, Npts, width, peakType, RisPeakHeight=False):
     """ Function to compute area of difference between two spectra. """
     x = np.linspace(Xmin, Xmax, Npts)
-    y1 = discretizedSpectrum(x, peaks1, width, peakType)
-    y2 = discretizedSpectrum(x, peaks2, width, peakType)
+    y1 = discretizedSpectrum(x, peaks1, width, peakType, RisPeakHeight)
+    y2 = discretizedSpectrum(x, peaks2, width, peakType, RisPeakHeight)
     return np.trapz(y2-y1,x)
 
-def computeProductArea(peaks1, peaks2, Xmin, Xmax, Npts, width, peakType):
+def computeProductArea(peaks1, peaks2, Xmin, Xmax, Npts, width, peakType, RisPeakHeight=False):
     """ Function to compute area of difference between two spectra. """
     x = np.linspace(Xmin, Xmax, Npts)
-    y1 = discretizedSpectrum(x, peaks1, width, peakType)
-    y2 = discretizedSpectrum(x, peaks2, width, peakType)
+    y1 = discretizedSpectrum(x, peaks1, width, peakType, RisPeakHeight)
+    y2 = discretizedSpectrum(x, peaks2, width, peakType, RisPeakHeight)
     return np.trapz(y1*y2,x)
 
-def computeAbsDiffArea(peaks1, peaks2, Xmin, Xmax, Npts, width, peakType):
+def computeAbsDiffArea(peaks1, peaks2, Xmin, Xmax, Npts, width, peakType, RisPeakHeight=False):
     """ Function to compute area of absolute difference between two spectra. """
     x = np.linspace(Xmin, Xmax, Npts)
-    y1 = discretizedSpectrum(x, peaks1, width, peakType)
-    y2 = discretizedSpectrum(x, peaks2, width, peakType)
+    y1 = discretizedSpectrum(x, peaks1, width, peakType, RisPeakHeight)
+    y2 = discretizedSpectrum(x, peaks2, width, peakType, RisPeakHeight)
     return np.trapz(abs(y2-y1),x)
 
 # comparisonType:
@@ -323,7 +334,7 @@ def computeAbsDiffArea(peaks1, peaks2, Xmin, Xmax, Npts, width, peakType):
 # RADF,relative absolute difference function I[ |fs - fc| ] / I(fr)  -inf, +inf
 def compareBroadenedSpectra(spRef, spTest, spectrumType=None, Npts=2000,
     Xmin=400, Xmax=4000, width=10, peakType='Lorentzian', comparisonType='RADF',
-    symmetrize=False, printLevel=0):
+    symmetrize=False, RisPeakHeight=False, printLevel=0):
 
     if comparisonType not in ['SNO','DNO','IDF','RADF']:
         raise('Unknown comparison type.')
@@ -336,12 +347,12 @@ def compareBroadenedSpectra(spRef, spTest, spectrumType=None, Npts=2000,
     peaksTest = list(zip(spTest.data[variableX], spTest.data[spectrumType]))
 
     if comparisonType == 'RADF':
-        areaAbsRef  = computeAbsArea(peaksRef, Xmin, Xmax, Npts, width, peakType)
-        areaAbsDiff = computeAbsDiffArea(peaksRef, peaksTest, Xmin, Xmax, Npts, width, peakType)
+        areaAbsRef  = computeAbsArea(peaksRef, Xmin, Xmax, Npts, width, peakType, RisPeakHeight)
+        areaAbsDiff = computeAbsDiffArea(peaksRef, peaksTest, Xmin, Xmax, Npts, width, peakType, RisPeakHeight)
         tval = areaAbsDiff / areaAbsRef
 
         if symmetrize:
-            areaAbsTest  = computeAbsArea(peaksTest, Xmin, Xmax, Npts, width, peakType)
+            areaAbsTest  = computeAbsArea(peaksTest, Xmin, Xmax, Npts, width, peakType, RisPeakHeight)
             tval = 0.5 * (tval + areaAbsDiff / areaAbsTest)
 
         if printLevel:
@@ -351,12 +362,12 @@ def compareBroadenedSpectra(spRef, spTest, spectrumType=None, Npts=2000,
         return tval
 
     elif comparisonType == 'SNO':
-        areaProduct = computeProductArea(peaksRef, peaksTest, Xmin, Xmax, Npts, width, peakType)
-        areaSqrRef = computeSquaredArea(peaksRef, Xmin, Xmax, Npts, width, peakType)
+        areaProduct = computeProductArea(peaksRef, peaksTest, Xmin, Xmax, Npts, width, peakType, RisPeakHeight)
+        areaSqrRef = computeSquaredArea(peaksRef, Xmin, Xmax, Npts, width, peakType, RisPeakHeight)
         tval = areaProduct / areaSqrRef
 
         if symmetrize:
-            areaSqrTest  = computeSquaredArea(peaksTest, Xmin, Xmax, Npts, width, peakType)
+            areaSqrTest  = computeSquaredArea(peaksTest, Xmin, Xmax, Npts, width, peakType, RisPeakHeight)
             tval = 0.5 * (tval + areaProduct / areaSqrTest)
 
         if printLevel:
@@ -366,9 +377,9 @@ def compareBroadenedSpectra(spRef, spTest, spectrumType=None, Npts=2000,
         return tval
 
     elif comparisonType == 'DNO':
-        areaSqrRef = computeSquaredArea(peaksRef, Xmin, Xmax, Npts, width, peakType)
-        areaSqrTest = computeSquaredArea(peaksTest, Xmin, Xmax, Npts, width, peakType)
-        areaProduct = computeProductArea(peaksRef, peaksTest, Xmin, Xmax, Npts, width, peakType)
+        areaSqrRef = computeSquaredArea(peaksRef, Xmin, Xmax, Npts, width, peakType, RisPeakHeight)
+        areaSqrTest = computeSquaredArea(peaksTest, Xmin, Xmax, Npts, width, peakType, RisPeakHeight)
+        areaProduct = computeProductArea(peaksRef, peaksTest, Xmin, Xmax, Npts, width, peakType, RisPeakHeight)
         tval = areaProduct / np.sqrt(areaSqrRef * areaSqrTest)
 
         if printLevel:
@@ -379,8 +390,8 @@ def compareBroadenedSpectra(spRef, spTest, spectrumType=None, Npts=2000,
         return tval
 
     elif comparisonType == 'IDF':
-        areaSqrRef  = computeSquaredArea(peaksRef, Xmin, Xmax, Npts, width, peakType)
-        areaSqrTest = computeSquaredArea(peaksTest, Xmin, Xmax, Npts, width, peakType)
+        areaSqrRef  = computeSquaredArea(peaksRef, Xmin, Xmax, Npts, width, peakType, RisPeakHeight)
+        areaSqrTest = computeSquaredArea(peaksTest, Xmin, Xmax, Npts, width, peakType, RisPeakHeight)
         tval = (areaSqrRef-areaSqrTest)/areaSqrRef
 
         if symmetrize:
@@ -397,7 +408,8 @@ def compareBroadenedSpectra(spRef, spTest, spectrumType=None, Npts=2000,
 
 
 def compareBroadenedSpectraFiles(fileRef, filesToTest, spectraToTest, Xmin=100,
-    Xmax=4000, Npts=1000, peakType='Lorentzian', width=15, comparisonType='RADF'):
+    Xmax=4000, Npts=1000, peakType='Lorentzian', width=15, RisPeakHeight=False,
+    comparisonType='RADF'):
 
     print('Loading Reference Spectrum:')
     spRef = SPECTRUM.fromDictionaryOutputFile(fileRef)
@@ -417,14 +429,15 @@ def compareBroadenedSpectraFiles(fileRef, filesToTest, spectraToTest, Xmin=100,
 
         if comparisonType == 'RADF':
             peaksRef = list(zip(spRef.data[variableX], spRef.data[spectrumType]))
-            areaAbsRef = computeAbsArea(peaksRef, Xmin, Xmax, Npts, width, peakType)
+            areaAbsRef = computeAbsArea(peaksRef, Xmin, Xmax, Npts, width, peakType, RisPeakHeight)
             areaDiff[spectrumType]['Abs Area of Ref'] = areaAbsRef
             print(f'Absolute Area of reference spectrum {areaAbsRef:10.5e}')
             areaDiff[spectrumType + ' Relative'] = {}
 
             for f in filesToTest:
                 peaks2 = list(zip(spTest[f].data[variableX], spTest[f].data[spectrumType]))
-                areaDiff[spectrumType][f] = computeAbsDiffArea(peaksRef, peaks2, Xmin, Xmax, Npts, width, peakType)
+                areaDiff[spectrumType][f] = computeAbsDiffArea(peaksRef, peaks2, Xmin, Xmax,
+                   Npts, width, peakType, RisPeakHeight)
                 areaDiff[spectrumType + ' Relative'][f] = areaDiff[spectrumType][f] / areaAbsRef
 
             #for spectrumType in spectraToTest:
@@ -435,39 +448,41 @@ def compareBroadenedSpectraFiles(fileRef, filesToTest, spectraToTest, Xmin=100,
 
         elif comparisonType == 'SNO':
             peaksRef = list(zip(spRef.data[variableX], spRef.data[spectrumType]))
-            areaSqRef = computeSquaredArea(peaksRef, Xmin, Xmax, Npts, width, peakType)
+            areaSqRef = computeSquaredArea(peaksRef, Xmin, Xmax, Npts, width, peakType, RisPeakHeight)
             areaDiff[spectrumType]['Area(Square(Ref))'] = areaSqRef
             print(f'Area of Ref^2 {areaSqRef:10.5e}')
             areaDiff[spectrumType + ' Relative'] = {}
 
             for f in filesToTest:
                 peaks2 = list(zip(spTest[f].data[variableX], spTest[f].data[spectrumType]))
-                areaDiff[spectrumType][f] = computeProductArea(peaksRef, peaks2, Xmin, Xmax, Npts, width, peakType)
+                areaDiff[spectrumType][f] = computeProductArea(peaksRef, peaks2, Xmin, Xmax,
+                  Npts, width, peakType, RisPeakHeight)
                 areaDiff[spectrumType + ' Relative'][f] = areaDiff[spectrumType][f] / areaSqRef
 
         elif comparisonType == 'DNO':
             peaksRef = list(zip(spRef.data[variableX], spRef.data[spectrumType]))
-            areaSqRef = computeSquaredArea(peaksRef, Xmin, Xmax, Npts, width, peakType)
+            areaSqRef = computeSquaredArea(peaksRef, Xmin, Xmax, Npts, width, peakType, RisPeakHeight)
             areaDiff[spectrumType]['Area(Square(Ref))'] = areaSqRef
             print(f'Area of Ref^2 {areaSqRef:10.5e}')
             areaDiff[spectrumType + ' Relative'] = {}
 
             for f in filesToTest:
                 peaks2 = list(zip(spTest[f].data[variableX], spTest[f].data[spectrumType]))
-                areaSqTest = computeSquaredArea(peaks2, Xmin, Xmax, Npts, width, peakType)
-                areaDiff[spectrumType][f] = computeProductArea(peaksRef, peaks2, Xmin, Xmax, Npts, width, peakType)
+                areaSqTest = computeSquaredArea(peaks2, Xmin, Xmax, Npts, width, peakType, RisPeakHeight)
+                areaDiff[spectrumType][f] = computeProductArea(peaksRef, peaks2, Xmin, Xmax,
+                  Npts, width, peakType, RisPeakHeight)
                 areaDiff[spectrumType + ' Relative'][f] = areaDiff[spectrumType][f] / np.sqrt(areaSqTest*areaSqRef)
 
         elif comparisonType == 'IDF':
             peaksRef = list(zip(spRef.data[variableX], spRef.data[spectrumType]))
-            areaSqRef = computeSquaredArea(peaksRef, Xmin, Xmax, Npts, width, peakType)
+            areaSqRef = computeSquaredArea(peaksRef, Xmin, Xmax, Npts, width, peakType, RisPeakHeight)
             areaDiff[spectrumType]['Area(Square(Ref))'] = areaSqRef
             print(f'Area of Ref^2 {areaSqRef:10.5e}')
             areaDiff[spectrumType + ' Relative'] = {}
 
             for f in filesToTest:
                 peaks2 = list(zip(spTest[f].data[variableX], spTest[f].data[spectrumType]))
-                areaSqTest = computeSquaredArea(peaks2, Xmin, Xmax, Npts, width, peakType)
+                areaSqTest = computeSquaredArea(peaks2, Xmin, Xmax, Npts, width, peakType, RisPeakHeight)
                 areaDiff[spectrumType + ' Relative'][f] = (areaSqRef-areaSqTest)/areaSqRef
 
     

@@ -22,7 +22,7 @@ class SPECTRUM(object):
 
     def __str__(self):
         s  = '\n ROA Diff. Parameter R-L (Ang^4/amu * 1000)'
-        s += ' Filename: %15s,  # of b.f.: %3d \n' % (self.filename,self.data['Number of basis functions'])
+        s += ' Filename: %15s,  # of b.f.: %3d \n' % (self.title,self.data['Number of basis functions'])
         s += 132*'-' + '\n'
         s += '    '
         for key in defaultKeys:
@@ -79,10 +79,10 @@ class SPECTRUM(object):
 
     def invert(self, invertKeys=None):
         if not invertKeys:
-             invertKeys = ['ROA alpha*G', 'ROA Beta(G)^2', 'ROA Beta(A)^2']
-             #'ROA R-L Delta(90)_z', 'ROA R-L Delta(90)_x', 'ROA R-L Delta(0)', 'ROA R-L Delta(180)']
+             invertKeys = ['ROA alpha*G', 'ROA Beta(G)^2', 'ROA Beta(A)^2',
+             'ROA R-L Delta(90)_z', 'ROA R-L Delta(90)_x', 'ROA R-L Delta(0)', 'ROA R-L Delta(180)']
         for k in invertKeys:
-            self.data[k].dot(-1.0)
+            self.data[k] *= -1.0
         return
 
     @classmethod
