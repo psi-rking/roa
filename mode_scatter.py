@@ -23,28 +23,41 @@
 import numpy as np
 from math import pi, sqrt, acos
 from qcelemental import constants
+#pc_dipmom_debye2si = constants.dipmom_debye2si
+#pc_e0              = constants.e0
 pc_au2amu          = constants.au2amu
-pc_dipmom_debye2si = constants.dipmom_debye2si
 pc_amu2kg          = constants.amu2kg
-pc_na              = constants.na
 pc_c               = constants.c
-pc_e0              = constants.e0
+pc_na              = constants.get("Avogadro constant")
+pc_a0              = constants.get("atomic unit of length")
 pc_bohr2angstroms  = constants.bohr2angstroms
 pc_hartree2J       = constants.hartree2J
-pc_bohr2m          = constants.bohr2m
 pc_me              = constants.me
 pc_h               = constants.h
-pc_hartree2ev      = constants.hartree2ev
-km_convert         = pc_hartree2J / (pc_bohr2m * pc_bohr2m * pc_amu2kg * pc_au2amu)
-cm_convert         = 1.0 / (2.0 * pi * pc_c * 100.0)
 from psi4.core import print_out, BasisSet
 from psi4.driver import qcdb
+
+# 'Energy' in wavenumbers = 1/lambda = E/hc from freq. of harmonic oscillator
+#constants_HOfreq2wn = 1.0 / (2.0 * pi * pc_c * 100.0)
+
+# constants_c_au is the speed of light in au = 1/alpha = 137.0 ...
+constants_c_au = pc_c * pc_me * pc_bohr2angstroms * 1e-10 / (pc_h / (2.0 * pi))
+
+# from square of the dipole strength to IR intensity in km/mol
+constants_dipole_to_kmmol = (pc_na * np.pi * 1.e-3 * constants.get("electron mass in u") *
+                   constants.get("fine-structure constant")**2 * pc_a0 / (3*pc_au2amu))
+
+# For each vibrational mode, convert Raman scattering parameters
+# from a0^4 / au -> Ang^4 / amu.
+constants_raman_conv = pc_bohr2angstroms * pc_bohr2angstroms * pc_bohr2angstroms * \
+             pc_bohr2angstroms / pc_au2amu
+
 
 def modeVectorsQCDB(mol, hessian, modesToReturn=None, print_lvl=1, pr=print,
                     printMolden=False):
     Natom = mol.natom()
     geom = mol.geometry().to_array()
-    masses = np.asarray([mol.mass(at) for at in range(Natom)])
+    masses = np.asarray([mol.mass(at) for at in range(Natom)]) # masses in amu
     atom_symbols = [mol.symbol(at) for at in range(Natom)] 
 
     pr("\n\tCalculating normal modes; Input coordinates (bohr)\n")
@@ -64,7 +77,6 @@ def modeVectorsQCDB(mol, hessian, modesToReturn=None, print_lvl=1, pr=print,
       with open('molden.vibs','w') as handle:
           handle.write(s)
 
-    # pr(vibtext)
     freqs = vibinfo['omega'].data.real
     # modes from vibinfo are unmass-weighted, not normalized, returned as cols
     # in amu^-1/2 ; convert here to au^-1/2
@@ -102,217 +114,11 @@ def modeVectorsQCDB(mol, hessian, modesToReturn=None, print_lvl=1, pr=print,
 
 
 """
-# Stolen from qcdb; make col phase canonical
-def _phase_cols_to_max_element(arr, tol=1.e-2, verbose=1):
-    ""Returns copy of 2D `arr` scaled such that, within cols, max(fabs)
-    element is positive. If max(fabs) is pos/neg pair, scales so first
-    element (within `tol`) is positive.
-    ""
-    arr2 = np.copy(arr)
-
-    rephasing = []
-    for v in range(arr.shape[1]):
-        vextreme = 0.0
-        iextreme = None
-
-        # find most extreme value
-        for varr in arr[:, v]:
-            vextreme = max(np.absolute(varr), vextreme)
-
-        # find the first index whose fabs equals that value, w/i tolerance
-        for iarr, varr in enumerate(arr[:, v]):
-            if (vextreme - np.absolute(varr)) < tol:
-                iextreme = iarr
-                break
-
-        sign = np.sign(arr[iextreme, v])
-        if sign == -1.:
-            rephasing.append(str(v))
-        arr2[:, v] *= sign
-
-    if rephasing and verbose >= 2:
-        print('Negative modes rephased:', ', '.join(rephasing))
-
-    return arr2
-
-
-# Return the vectors along which to displace for finite differences
-# and ROA analysis.
-def modeVectors(geom, masses, hessian, modesToReturn=None, print_lvl=1, pr=print):
-        # geom,      # (Natom,3) Cartesian coordinates of nuclei
-        # masses,    # atomic masses
-        # hessian    # (3*Natom,3*Natom) Cartesian 2nd derivative
-    Natom = len(geom)
-
-    pr("\n\tCalculating normal modes; Input coordinates (bohr)\n")
-    for a in range(Natom):
-        pr("\t%15.10f%15.10f%15.10f\n" % (geom[a,0],geom[a,1],geom[a,2]))
-
-    # Now construct the rotational and translational coordinates to project
-    # out of the Cartesian Hessian.
-    comGeom = centerGeometry(geom, masses)
-    mwGeom = np.zeros( (Natom,3) )
-    for i in range(Natom):
-        for xyz in range(3):
-            mwGeom[i][xyz] = comGeom[i][xyz] * sqrt(masses[i])
-
-    pr("\n\tAtomic Masses for Raman Computation:\n")
-    for i in range(Natom):
-        pr("\t%5d %12.8f\n" % (i+1, masses[i]) )
-
-    if print_lvl > 1:
-        pr("\n\tMass-Weighted Coordinates relative to COM\n")
-        for a in range(Natom):
-            pr("\t%15.10f%15.10f%15.10f\n" % (mwGeom[a,0],mwGeom[a,1],mwGeom[a,2]))
-
-    Iinv = inertiaTensorInverse(comGeom, masses)
-    if print_lvl > 1:
-        pr("\n\tInertia Tensor Inverse\n")
-        pr(str(Iinv)+'\n')
-
-    # Generate 6 rotation and translation vectors to project out of Hessian
-    P = np.zeros( (3*Natom, 3*Natom) )
-    total_mass = np.sum(masses)
-
-    for i in range(3*Natom):
-        icart = i % 3
-        iatom = i // 3
-        imass = masses[iatom]
-        P[i][i] = 1.0
-
-        for j in range(3*Natom):
-            jcart = j % 3
-            jatom = j // 3
-            jmass = masses[jatom]
-            P[i,j] +=  -1.0 * sqrt(imass * jmass) / total_mass * (icart == jcart)
-
-            for a in range(3):
-                for b in range(3):
-                    for c in range(3):
-                        for d in range(3):
-                            P[i,j] +=  -1.0 * levi(a, b, icart) * mwGeom[iatom,b] * Iinv[a,c] * \
-                                              levi(c, d, jcart) * mwGeom[jatom,d]
-
-    # Mass-weight the Hessian.  Will be [Eh/(bohr^2 au)]
-    M = np.zeros( (3*Natom, 3*Natom) )
-    for i in range(Natom):
-        for j in range(3):
-            M[3*i + j, 3*i + j] = 1.0 / sqrt((masses[i]) / pc_au2amu)
-
-    T = np.dot(M, hessian)
-    F = np.dot(T, M)
-
-    # Project out rotational and translational degrees of freedom from M-W Hessian.
-    T[:] = np.dot(F, P)
-    F[:] = np.dot(P.T, T)
-
-    if print_lvl > 2:
-        pr("\n\tMass-weighted, projected Hessian\n")
-        pr(str(F)+'\n')
-
-    Fevals, Fevecs = symmMatEig(F) # rows of Fevecs are eigenvectors
-
-    # Resort for descending evals
-    idx = np.argsort(Fevals)[::-1] # descending evals
-    Fevals[:] = Fevals[idx]
-    Fevecs[:] = Fevecs[idx, :]
-    # use function that phase normalizes the columns
-    Fevecs = (_phase_cols_to_max_element(Fevecs.T, tol=1.e-2, verbose=1)).T
-    # matches qcdb: vibinfo['q'] == Datum('normal mode', 'a0 u^1/2',
-    #  qL, comment='normalized mass-weighted')
-
-    # Unmass-weighting destroys normalization going to au^-1/2.
-    Lx = np.dot(M, Fevecs.T)
-    # matches qcdb: vibinfo['w'] = 
-    # Datum('normal mode', 'a0', wL, comment='un-mass-weighted')
-    # apart from mass unit
-
-    if print_lvl > 2:
-        pr("\n\tNormal transform matrix u^(-1/2) * Hmw_evects\n")
-        pr(str(Lx)+'\n')
-
-    freqs    = np.zeros(3*Natom)
-    for i in range(3*Natom):
-        if Fevals[i] < 0.0:
-            freqs[i] = -1.0 * cm_convert * sqrt(abs(km_convert * Fevals[i]))
-        else:
-            freqs[i] = cm_convert * sqrt(km_convert * Fevals[i])
-
-    pr("\n\t----------------------\n")
-    pr("\t Mode #   Harmonic    \n")
-    pr("\t            Freq.     \n")
-    pr("\t           (cm-1)     \n")
-    pr("\t----------------------\n")
-    for i in range(0,3*Natom):
-        if freqs[i] < 0.0:
-            pr("\t  %3d   %10.2fi\n" % (i, abs(freqs[i])))
-        else:
-            pr("\t  %3d   %10.2f \n" % (i, freqs[i]))
-
-    selected_modes = np.zeros( (len(modesToReturn),3*Natom))
-    selected_freqs = np.zeros( len(modesToReturn) )
-
-    for i, mode in enumerate(modesToReturn):
-        selected_modes[i,:] = Lx[:,mode]
-        selected_freqs[i] = freqs[mode]
-
-    pr("\nFrequencies (with modes) returned from modeVectors.\n")
-    pr(str(selected_freqs)+'\n')
-
-    if print_lvl > 1:
-        pr("\nVectors returned from modeVectors are rows.\n")
-        pr(str(selected_modes)+'\n')
-
-    return (selected_modes, selected_freqs)
-
-def symmMatEig(mat):
-    try:
-        evals, evects = np.linalg.eigh(mat)
-        # apply convention for consistency
-        if abs(min(evects[:,0])) > abs(max(evects[:,0])):
-            evects[:,0] *= -1.0
-    except:
-        raise Exception("symmMatEig: could not compute eigenvectors")
-    evects[:] = evects.T  # return eigenvectors as rows
-    return evals, evects
-
-def inertiaTensorInverse(geom, masses):
-    I = np.zeros( (3,3) )
-    for i in range(len(masses)):
-        I[0,0] += masses[i]*(geom[i,1]*geom[i,1]+geom[i,2]*geom[i,2])
-        I[1,1] += masses[i]*(geom[i,0]*geom[i,0]+geom[i,2]*geom[i,2])
-        I[2,2] += masses[i]*(geom[i,0]*geom[i,0]+geom[i,1]*geom[i,1])
-        I[0,1] -= masses[i]*geom[i,0]*geom[i,1]
-        I[0,2] -= masses[i]*geom[i,0]*geom[i,2]
-        I[1,2] -= masses[i]*geom[i,1]*geom[i,2]
-
-    I[1,0] = I[0,1]
-    I[2,0] = I[0,2]
-    I[2,1] = I[1,2]
-    Iinv = np.linalg.inv(I)
-    return Iinv
-
-def centerGeometry(geom, masses):
-    total = np.sum(masses)
-
-    com = np.zeros( (3) )
-    for i in range(len(masses)):
-        for xyz in range(3):
-           com[xyz] += masses[i] * geom[i,xyz]
-    com[:] = com / total
-    centeredGeom = np.zeros( geom.shape )
-    for i in range(len(masses)):
-        centeredGeom[i,:] = np.subtract( geom[i,:], com )
-    return centeredGeom
-"""
-
-"""
   modeScatter() function for ROA spectra
   See heading of scatter() function.
   This function does the same ROA analysis but only on a given
   set of normal modes.  It does not do the Hessian analysis.
 """
-
 def modeScatter(
         mode_indices,# list   : indices of mode used as label.
         mode_vectors,# 2Darray: vectors in mode direction (Lx)
@@ -390,13 +196,6 @@ def modeScatter(
             s += Q_grad[i].__str__() + '\n'
         s += "\n"
         pr(s)
-        #with open("tender.dat", "w") as f:
-        #    f.write(s)
-
-    #pr("\n\tAtomic Masses for Raman Computation:\n")
-    #for i in range(Natom):
-    #    pr("\t%5d %12.8f\n" % (i+1, masses[i]) )
-    # total_mass = np.sum(masses)
 
     # Pull each tensor array into a single supermatrix
     A_der_q_tmp = np.zeros( (Nmodes,9) )
@@ -424,13 +223,13 @@ def modeScatter(
     mu_der_q = np.dot(mu_der, Lx)
 
     # Compute IR intensities in projected normal coordinates
-    mu_der_conv = pc_dipmom_debye2si * pc_dipmom_debye2si / (1e-20 * pc_amu2kg * pc_au2amu) \
-                  * pc_na * pi / (3.0 * pc_c * pc_c * 4.0 * pi * pc_e0 * 1000.0)
+    #mu_der_conv = pc_dipmom_debye2si * pc_dipmom_debye2si / (1e-20 * pc_amu2kg * pc_au2amu) \
+    #              * pc_na * pi / (3.0 * pc_c * pc_c * 4.0 * pi * pc_e0 * 1000.0)
 
     IRint = np.zeros(Nmodes)
     for i in range(Nmodes):
-        for j in range(3):
-            IRint[i] += mu_der_conv * mu_der_q[j,i] * mu_der_q[j,i]
+        for j in range(3): # include au -> amu in constants_dipole_to_kmmol
+            IRint[i] += constants_dipole_to_kmmol * mu_der_q[j,i] * mu_der_q[j,i]
 
     # Transform polarizability derivatives to normal coordinates
     # A_der   is 3*Natom x 9
@@ -487,10 +286,6 @@ def modeScatter(
                     Q_der_q[i][j][k][l] = Q_der_q_tmp[i,jkl]
                     jkl += 1
 
-    # For each vibrational mode, compute lots of Raman scattering activities
-    raman_conv = pc_bohr2angstroms * pc_bohr2angstroms * pc_bohr2angstroms * \
-                 pc_bohr2angstroms / pc_au2amu
-
     # This is confusing, but to try to fit with the literature from this point on 
     # alpha = polarizability; A = quadrupole term !
     freqs           = mode_freqs
@@ -524,14 +319,14 @@ def modeScatter(
     for i in range(0, Nmodes):
         if freqs[i] < 0.0:
             pr("%3d %8.2fi %9.4f    %7.4f %9.4f   %9.4f  %9.4f  %9.4f  %9.4f  %9.4f\n" % (i+1,
-                            abs(freqs[i]), IRint[i], redmass[i], alpha[i] * alpha[i] * raman_conv,
-                            beta_alpha2[i] * raman_conv, ramint_linear[i] * raman_conv, depol_linear[i],
-                            ramint_circular[i] * raman_conv, depol_circular[i]))
+                            abs(freqs[i]), IRint[i], redmass[i], alpha[i] * alpha[i] * constants_raman_conv,
+                            beta_alpha2[i] * constants_raman_conv, ramint_linear[i] * constants_raman_conv, depol_linear[i],
+                            ramint_circular[i] * constants_raman_conv, depol_circular[i]))
         else:
             pr( "%3d %9.2f %9.4f    %7.4f  %9.4f  %9.4f  %9.4f  %9.4f  %9.4f  %9.4f\n" % (i+1,
-                            freqs[i], IRint[i], redmass[i], alpha[i] * alpha[i] * raman_conv,
-                            beta_alpha2[i] * raman_conv, ramint_linear[i] * raman_conv, depol_linear[i],
-                            ramint_circular[i] * raman_conv, depol_circular[i]) )
+                            freqs[i], IRint[i], redmass[i], alpha[i] * alpha[i] * constants_raman_conv,
+                            beta_alpha2[i] * constants_raman_conv, ramint_linear[i] * constants_raman_conv, depol_linear[i],
+                            ramint_circular[i] * constants_raman_conv, depol_circular[i]) )
     pr("--------------------------------------------------------------------------------------------------------\n")
 
 
@@ -551,8 +346,7 @@ def modeScatter(
         robustnessPsi[i]   = f_robustnessPsi(A_der_q[i], Q_der_q[i])
         betaA2[i] = f_beta_A2(A_der_q[i], Q_der_q[i], omega)
 
-    cvel = pc_c * pc_me * pc_bohr2angstroms * 1e-10 / (pc_h / (2.0 * pi))
-    roa_conv = raman_conv * 1e6 / cvel;
+    roa_conv = constants_raman_conv * 1e6 / constants_c_au;
     pr("----------------------------------------------------------------------\n")
     pr("               ROA Scattering Invariants\n")
     pr("----------------------------------------------------------------------\n")
@@ -583,14 +377,14 @@ def modeScatter(
     delta_z   = np.zeros(Nmodes)
 
     for i in range(Nmodes):
-        delta_0[i]   = raman_conv * 1e3 * 4.0 * (
-          180.0 * alpha[i] * G[i] + 4.0 * beta_G2[i] - 4.0 * betaA2[i]) / cvel
-        delta_180[i] = raman_conv * 1e3 * 4.0 * (
-          24.0 * beta_G2[i] + 8.0 * betaA2[i]) / cvel
-        delta_x[i]   = raman_conv * 1e3 * 4.0 * (
-          45.0 * alpha[i] * G[i] + 7.0 * beta_G2[i] + betaA2[i]) / cvel
-        delta_z[i]   = raman_conv * 1e3 * 4.0 * (
-           6.0 * beta_G2[i] - 2.0 * betaA2[i]) / cvel
+        delta_0[i]   = constants_raman_conv * 1e3 * 4.0 * (
+          180.0 * alpha[i] * G[i] + 4.0 * beta_G2[i] - 4.0 * betaA2[i]) / constants_c_au
+        delta_180[i] = constants_raman_conv * 1e3 * 4.0 * (
+          24.0 * beta_G2[i] + 8.0 * betaA2[i]) / constants_c_au
+        delta_x[i]   = constants_raman_conv * 1e3 * 4.0 * (
+          45.0 * alpha[i] * G[i] + 7.0 * beta_G2[i] + betaA2[i]) / constants_c_au
+        delta_z[i]   = constants_raman_conv * 1e3 * 4.0 * (
+           6.0 * beta_G2[i] - 2.0 * betaA2[i]) / constants_c_au
 
     #for i in range(Nmodes-1, -1, -1):
     for i in range(0, Nmodes):
@@ -608,8 +402,8 @@ def modeScatter(
         Dout['Number of basis functions']  = nbf
     Dout['Frequency']                  = freqs[0:Nmodes]
     Dout['IR Intensity']               = IRint[0:Nmodes]
-    Dout['Raman Intensity (linear)']   = raman_conv * ramint_linear[0:Nmodes]
-    Dout['Raman Intensity (circular)'] = raman_conv * ramint_circular[0:Nmodes]
+    Dout['Raman Intensity (linear)']   = constants_raman_conv * ramint_linear[0:Nmodes]
+    Dout['Raman Intensity (circular)'] = constants_raman_conv * ramint_circular[0:Nmodes]
     Dout['ROA R-L Delta(0)']           = delta_0[0:Nmodes]
     Dout['ROA R-L Delta(180)']         = delta_180[0:Nmodes]
     Dout['ROA R-L Delta(90)_x']        = delta_x[0:Nmodes]
@@ -698,47 +492,6 @@ def f_depolar_circular(alpha, beta2):
     if denom > 1e-6:
         ratio = numer / denom
     return ratio
-
-def symmMatEig(mat):
-    try:
-        evals, evects = np.linalg.eigh(mat)
-        # apply convention for consistency
-        if abs(min(evects[:,0])) > abs(max(evects[:,0])):
-            evects[:,0] *= -1.0
-    except:
-        raise Exception("symmMatEig: could not compute eigenvectors")
-    evects[:] = evects.T  # return eigenvectors as rows
-    return evals, evects
-
-def inertiaTensorInverse(geom, masses):
-    I = np.zeros( (3,3) )
-    for i in range(len(masses)):
-        I[0,0] += masses[i]*(geom[i,1]*geom[i,1]+geom[i,2]*geom[i,2])
-        I[1,1] += masses[i]*(geom[i,0]*geom[i,0]+geom[i,2]*geom[i,2])
-        I[2,2] += masses[i]*(geom[i,0]*geom[i,0]+geom[i,1]*geom[i,1])
-        I[0,1] -= masses[i]*geom[i,0]*geom[i,1]
-        I[0,2] -= masses[i]*geom[i,0]*geom[i,2]
-        I[1,2] -= masses[i]*geom[i,1]*geom[i,2]
-
-    I[1,0] = I[0,1]
-    I[2,0] = I[0,2]
-    I[2,1] = I[1,2]
-    Iinv = np.linalg.inv(I)
-    return Iinv
-
-def centerGeometry(geom, masses):
-    total = np.sum(masses)
-
-    com = np.zeros( (3) )
-    for i in range(len(masses)):
-        for xyz in range(3):
-           com[xyz] += masses[i] * geom[i,xyz]
-    com[:] = com / total
-    centeredGeom = np.zeros( geom.shape )
-    for i in range(len(masses)):
-        centeredGeom[i,:] = np.subtract( geom[i,:], com )
-    return centeredGeom
-
 
 # Lq has dimensions (3N, Nmodes)
 # A_der_q is (Nmodes, 3, 3)
